@@ -29,50 +29,59 @@ class _CalendarScreenState extends State<CalendarScreen> {
         final routines = db.getRoutineTemplates();
 
         return Scaffold(
+          backgroundColor: AppTheme.background,
           appBar: AppBar(
             title: const Text('Calendar & Planning'),
             actions: [
-              IconButton(
-                icon: const Icon(Icons.today, color: AppTheme.sereneTeal),
-                tooltip: 'Jump to Today',
+              TextButton.icon(
+                icon: const Icon(Icons.today, color: AppTheme.coralPrimary, size: 18),
+                label: const Text('Today', style: TextStyle(color: AppTheme.coralPrimary, fontWeight: FontWeight.bold)),
                 onPressed: () => setState(() => _selectedDate = DateTime.now()),
               ),
             ],
           ),
           body: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
             children: [
-              // Month Header with Navigation
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.chevron_left),
-                    onPressed: () {
-                      setState(() {
-                        _selectedDate = DateTime(_selectedDate.year, _selectedDate.month - 1, 1);
-                      });
-                    },
-                  ),
-                  Text(
-                    '${_monthName(_selectedDate.month)} ${_selectedDate.year}',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.chevron_right),
-                    onPressed: () {
-                      setState(() {
-                        _selectedDate = DateTime(_selectedDate.year, _selectedDate.month + 1, 1);
-                      });
-                    },
-                  ),
-                ],
+              // Month Selector Header Card
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: AppTheme.softCardShadow,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.chevron_left, color: AppTheme.textPrimary),
+                      onPressed: () {
+                        setState(() {
+                          _selectedDate = DateTime(_selectedDate.year, _selectedDate.month - 1, 1);
+                        });
+                      },
+                    ),
+                    Text(
+                      '${_monthName(_selectedDate.month)} ${_selectedDate.year}',
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.chevron_right, color: AppTheme.textPrimary),
+                      onPressed: () {
+                        setState(() {
+                          _selectedDate = DateTime(_selectedDate.year, _selectedDate.month + 1, 1);
+                        });
+                      },
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
 
-              // Calendar Days Row (Interactive Day Selector)
+              // Calendar Days Horizontal Carousel
               SizedBox(
-                height: 70,
+                height: 78,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   itemCount: DateTime(_selectedDate.year, _selectedDate.month + 1, 0).day,
@@ -85,17 +94,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     return GestureDetector(
                       onTap: () => setState(() => _selectedDate = candidate),
                       child: Container(
-                        width: 50,
+                        width: 54,
                         margin: const EdgeInsets.symmetric(horizontal: 4),
                         decoration: BoxDecoration(
-                          color: isSelected
-                              ? AppTheme.sereneTeal
-                              : (hasFast ? const Color(0xFFEFF6FF) : Colors.white),
-                          borderRadius: BorderRadius.circular(12),
+                          gradient: isSelected ? AppTheme.sunsetMesh : null,
+                          color: isSelected ? null : Colors.white,
+                          borderRadius: BorderRadius.circular(18),
+                          boxShadow: isSelected ? AppTheme.heroFloatShadow : AppTheme.softCardShadow,
                           border: Border.all(
-                            color: isSelected
-                                ? AppTheme.sereneTeal
-                                : (hasFast ? const Color(0xFF93C5FD) : const Color(0xFFE2E8F0)),
+                            color: isSelected ? Colors.transparent : (hasFast ? const Color(0xFFBFDBFE) : const Color(0xFFF3F4F6)),
                           ),
                         ),
                         child: Column(
@@ -105,23 +112,24 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               _weekdayShort(candidate.weekday),
                               style: TextStyle(
                                 fontSize: 11,
-                                color: isSelected ? Colors.white70 : AppTheme.mutedGray,
+                                fontWeight: FontWeight.w600,
+                                color: isSelected ? Colors.white70 : AppTheme.textSecondary,
                               ),
                             ),
-                            const SizedBox(height: 2),
+                            const SizedBox(height: 4),
                             Text(
                               '$dayNumber',
                               style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: isSelected ? Colors.white : AppTheme.slateNavy,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                color: isSelected ? Colors.white : AppTheme.textPrimary,
                               ),
                             ),
                             if (hasFast)
                               Container(
-                                width: 4,
-                                height: 4,
-                                margin: const EdgeInsets.only(top: 2),
+                                width: 5,
+                                height: 5,
+                                margin: const EdgeInsets.only(top: 3),
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   color: isSelected ? Colors.white : const Color(0xFF2563EB),
@@ -137,61 +145,89 @@ class _CalendarScreenState extends State<CalendarScreen> {
               const SizedBox(height: 16),
 
               // Selected Date Summary Banner
-              Card(
-                color: isSelectedFasting ? const Color(0xFFEFF6FF) : Colors.white,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    children: [
-                      Icon(
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: isSelectedFasting ? const Color(0xFFEFF6FF) : Colors.white,
+                  borderRadius: BorderRadius.circular(22),
+                  boxShadow: AppTheme.softCardShadow,
+                  border: isSelectedFasting ? Border.all(color: const Color(0xFFBFDBFE)) : null,
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: isSelectedFasting ? const Color(0xFFDBEAFE) : const Color(0xFFFFECE5),
+                      child: Icon(
                         isSelectedFasting ? Icons.water_drop : Icons.calendar_today,
-                        color: isSelectedFasting ? const Color(0xFF2563EB) : AppTheme.sereneTeal,
+                        color: isSelectedFasting ? const Color(0xFF2563EB) : AppTheme.coralPrimary,
+                        size: 20,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              AppDateUtils.formatFullDate(_selectedDate),
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            AppDateUtils.formatFullDate(_selectedDate),
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppTheme.textPrimary),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            isSelectedFasting
+                                ? 'Scheduled Fast Day • Hydration & gentle continuity'
+                                : 'Standard Schedule',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isSelectedFasting ? const Color(0xFF1E40AF) : AppTheme.textSecondary,
+                              fontWeight: isSelectedFasting ? FontWeight.w600 : FontWeight.normal,
                             ),
-                            if (isSelectedFasting)
-                              const Text(
-                                'Scheduled Fasting Day: Hydration & gentle continuity',
-                                style: TextStyle(fontSize: 12, color: Color(0xFF1E40AF)),
-                              ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 18),
 
-              // Time Blocks & Agenda
+              // Time Blocks & Agenda Header
               const Text(
-                'Scheduled Time Blocks & Devotions',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                'Time Blocks & Spiritual Slots',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
 
               ...routines.map((r) {
-                return Card(
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: AppTheme.softCardShadow,
+                  ),
                   child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                     leading: Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppTheme.sereneTeal.withOpacity(0.12),
+                        color: const Color(0xFFFFECE5),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(Icons.schedule, color: AppTheme.coralPrimary, size: 20),
+                    ),
+                    title: Text(r.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    subtitle: Text(
+                      'Preferred: ${r.preferredTimeLocal} • ${r.targetDurationMins} minutes',
+                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                    ),
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3F4F6),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.schedule, color: AppTheme.sereneTeal, size: 20),
-                    ),
-                    title: Text(r.title, style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text('Preferred start: ${r.preferredTimeLocal} • ${r.targetDurationMins} minutes'),
-                    trailing: const Chip(
-                      label: Text('RECURRING', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
+                      child: const Text('RECURRING', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
                     ),
                   ),
                 );

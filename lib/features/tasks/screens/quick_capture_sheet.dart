@@ -54,41 +54,68 @@ class _QuickCaptureSheetState extends State<QuickCaptureSheet> {
   Widget build(BuildContext context) {
     final workspaces = LocalDatabase.instance.getWorkspaces();
 
-    return Padding(
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      ),
       padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-        left: 16,
-        right: 16,
-        top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        left: 20,
+        right: 20,
+        top: 12,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Drag Handle
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE5E7EB),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Quick Capture',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
+              const Text(
+                'Capture Commitment',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.textPrimary,
+                  letterSpacing: -0.4,
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.close),
+                icon: const Icon(Icons.close, size: 20, color: AppTheme.textTertiary),
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
 
           // Title
           TextField(
             controller: _titleController,
             autofocus: true,
-            decoration: const InputDecoration(
+            style: const TextStyle(fontWeight: FontWeight.w600),
+            decoration: InputDecoration(
               labelText: 'What commitment is on your mind?',
-              hintText: 'e.g. Schedule team retro, review bank statement',
+              hintText: 'e.g. Prepare Friday operations slides',
+              filled: true,
+              fillColor: const Color(0xFFF9FAFB),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -96,21 +123,35 @@ class _QuickCaptureSheetState extends State<QuickCaptureSheet> {
           // Next Physical Action
           TextField(
             controller: _nextActionController,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Immediate next physical action',
-              hintText: 'e.g. Open Figma link, draft message to Segun',
+              hintText: 'e.g. Open Google Drive folder',
+              filled: true,
+              fillColor: const Color(0xFFF9FAFB),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+              ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
 
           // Workspace Picker
           DropdownButtonFormField<String>(
             value: _selectedWorkspaceId,
-            decoration: const InputDecoration(labelText: 'Workspace'),
+            decoration: InputDecoration(
+              labelText: 'Workspace Partition',
+              filled: true,
+              fillColor: const Color(0xFFF9FAFB),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+              ),
+            ),
             items: workspaces.map((ws) {
               return DropdownMenuItem(
                 value: ws.id,
-                child: Text(ws.name),
+                child: Text(ws.name, style: const TextStyle(fontWeight: FontWeight.w600)),
               );
             }).toList(),
             onChanged: (val) {
@@ -121,23 +162,24 @@ class _QuickCaptureSheetState extends State<QuickCaptureSheet> {
 
           // Top Priority Toggle
           SwitchListTile(
-            title: const Text('Designate as Top Priority for Today'),
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Top Priority for Today', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
             value: _isTopPriority,
-            activeColor: AppTheme.sereneTeal,
+            activeColor: AppTheme.coralPrimary,
             onChanged: (val) => setState(() => _isTopPriority = val),
           ),
           const SizedBox(height: 16),
 
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.sereneTeal,
+              backgroundColor: AppTheme.darkCharcoal,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             ),
             onPressed: _save,
-            child: const Text('Save Task', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text('Save Commitment', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
           ),
-          const SizedBox(height: 20),
         ],
       ),
     );

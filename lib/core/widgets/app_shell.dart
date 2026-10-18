@@ -30,6 +30,7 @@ class _AppShellState extends State<AppShell> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (_) => const QuickCaptureSheet(),
     );
   }
@@ -49,42 +50,99 @@ class _AppShellState extends State<AppShell> {
       const MoreHubScreen(),
     ];
 
+    // Responsive Mobile Container: Center mobile frame on wider screens with soft backdrop
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: screens,
+      backgroundColor: const Color(0xFFE5E7EB), // Soft neutral backdrop for web desktop
+      body: Center(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 440),
+          decoration: BoxDecoration(
+            color: AppTheme.background,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 40,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Stack(
+            children: [
+              // Active Screen Content
+              IndexedStack(
+                index: _currentIndex,
+                children: screens,
+              ),
+
+              // Modern Floating Bottom Navigation Bar (matching reference UI)
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 16,
+                child: Container(
+                  height: 68,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(34),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 25,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildNavItem(0, Icons.home_filled, Icons.home_outlined, 'Today'),
+                      _buildNavItem(1, Icons.calendar_month, Icons.calendar_month_outlined, 'Plan'),
+                      _buildNavItem(2, Icons.check_circle, Icons.check_circle_outline, 'Tasks'),
+                      _buildNavItem(3, Icons.account_balance_wallet, Icons.account_balance_wallet_outlined, 'Finance'),
+                      _buildNavItem(4, Icons.widgets, Icons.widgets_outlined, 'More'),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
-        indicatorColor: AppTheme.sereneTeal.withOpacity(0.18),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.wb_sunny_outlined),
-            selectedIcon: Icon(Icons.wb_sunny, color: AppTheme.sereneTeal),
-            label: 'Today',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.calendar_month_outlined),
-            selectedIcon: Icon(Icons.calendar_month, color: AppTheme.sereneTeal),
-            label: 'Plan',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.check_circle_outline),
-            selectedIcon: Icon(Icons.check_circle, color: AppTheme.sereneTeal),
-            label: 'Tasks',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.account_balance_wallet_outlined),
-            selectedIcon: Icon(Icons.account_balance_wallet, color: AppTheme.sereneTeal),
-            label: 'Finance',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.grid_view_outlined),
-            selectedIcon: Icon(Icons.grid_view, color: AppTheme.sereneTeal),
-            label: 'More',
-          ),
-        ],
+    );
+  }
+
+  Widget _buildNavItem(int index, IconData activeIcon, IconData inactiveIcon, String label) {
+    final isSelected = _currentIndex == index;
+
+    return GestureDetector(
+      onTap: () => setState(() => _currentIndex = index),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFFFECE5) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? activeIcon : inactiveIcon,
+              color: isSelected ? AppTheme.coralPrimary : const Color(0xFF9CA3AF),
+              size: 22,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? AppTheme.coralPrimary : const Color(0xFF9CA3AF),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -22,97 +22,139 @@ class FinanceOverviewScreen extends StatelessWidget {
         final db = LocalDatabase.instance;
         final accounts = db.getFinancialAccounts();
         final transactions = db.getLedgerTransactions();
-
         final totalLiquidityKobo = accounts.fold<int>(0, (sum, a) => sum + a.balanceKobo);
 
         return Scaffold(
+          backgroundColor: AppTheme.background,
           appBar: AppBar(
             title: const Text('Financial Ledger (NGN)'),
             actions: [
               IconButton(
-                icon: const Icon(Icons.add_circle_outline, color: AppTheme.sereneTeal),
+                icon: const Icon(Icons.add_circle, color: AppTheme.coralPrimary, size: 28),
                 tooltip: 'Add Transaction',
                 onPressed: onAddTransaction,
               ),
             ],
           ),
           body: ListView(
-            padding: const EdgeInsets.only(bottom: 80),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
             children: [
-              // Total Balance Card
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Total Ledger Net Worth',
-                        style: TextStyle(color: AppTheme.mutedGray, fontSize: 13),
-                      ),
-                      const SizedBox(height: 6),
-                      PrivacyBlurWrapper(
-                        child: Text(
-                          MoneyFormatter.formatKobo(totalLiquidityKobo),
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.5,
-                            color: AppTheme.slateNavy,
+              // Sunset Mesh Gradient Balance Card (matching reference design)
+              Container(
+                decoration: BoxDecoration(
+                  gradient: AppTheme.sunsetMesh,
+                  borderRadius: BorderRadius.circular(30),
+                  boxShadow: AppTheme.heroFloatShadow,
+                ),
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'TOTAL LIQUID LEDGER',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.1,
                           ),
                         ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'NGN • ₦',
+                            style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    PrivacyBlurWrapper(
+                      child: Text(
+                        MoneyFormatter.formatKobo(totalLiquidityKobo),
+                        style: const TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          letterSpacing: -0.5,
+                        ),
                       ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Double-entry verified. Amounts stored in integer minor units (kobo).',
-                        style: TextStyle(fontSize: 11, color: AppTheme.mutedGray),
-                      ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text('Record Transaction'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: AppTheme.darkCharcoal,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          ),
+                          onPressed: onAddTransaction,
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
 
-              // Accounts List
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-                child: Text(
-                  'Accounts & Balances',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+              const SizedBox(height: 20),
+
+              // Accounts Header
+              const Text(
+                'Accounts & Wallets',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
               ),
+              const SizedBox(height: 10),
+
               ...accounts.map((acc) {
-                return Card(
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: AppTheme.softCardShadow,
+                  ),
                   child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
                     leading: CircleAvatar(
                       backgroundColor: acc.accountType == AccountType.cash
-                          ? const Color(0xFFFEF3C7)
-                          : const Color(0xFFE0E7FF),
+                          ? AppTheme.pastelPeach
+                          : AppTheme.pastelBlue,
                       child: Icon(
                         acc.accountType == AccountType.cash
                             ? Icons.account_balance_wallet
                             : Icons.account_balance,
                         color: acc.accountType == AccountType.cash
-                            ? const Color(0xFFD97706)
-                            : const Color(0xFF4F46E5),
+                            ? AppTheme.pastelPeachText
+                            : AppTheme.pastelBlueText,
                         size: 20,
                       ),
                     ),
                     title: Text(
                       acc.name,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                     ),
                     subtitle: Text(
                       acc.accountType.name.toUpperCase(),
-                      style: const TextStyle(fontSize: 11),
+                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
                     ),
                     trailing: PrivacyBlurWrapper(
                       child: Text(
                         MoneyFormatter.formatKobo(acc.balanceKobo),
                         style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          color: AppTheme.textPrimary,
                         ),
                       ),
                     ),
@@ -120,23 +162,27 @@ class FinanceOverviewScreen extends StatelessWidget {
                 );
               }),
 
-              // Recent Transactions
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
-                child: Text(
-                  'Recent Journal Postings',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+              const SizedBox(height: 16),
+
+              // Journal Postings Header
+              const Text(
+                'Recent Postings',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
               ),
+              const SizedBox(height: 10),
+
               if (transactions.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                  child: Center(
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: AppTheme.softCardShadow,
+                  ),
+                  child: const Center(
                     child: Text(
-                      'No recorded transactions yet. Tap "+" to record your first expense or income.',
-                      style: TextStyle(color: AppTheme.mutedGray),
+                      'No recorded transactions yet. Tap "Record Transaction" above.',
+                      style: TextStyle(color: AppTheme.textSecondary),
                     ),
                   ),
                 )
@@ -145,14 +191,21 @@ class FinanceOverviewScreen extends StatelessWidget {
                   final isExpense = tx.type == TransactionType.expense;
                   final isIncome = tx.type == TransactionType.income;
 
-                  return Card(
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: AppTheme.softCardShadow,
+                    ),
                     child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
                       leading: CircleAvatar(
                         backgroundColor: isExpense
-                            ? const Color(0xFFFFE4E6)
+                            ? const Color(0xFFFFECE5)
                             : isIncome
-                                ? const Color(0xFFD1FAE5)
-                                : const Color(0xFFE0E7FF),
+                                ? const Color(0xFFE8F5E9)
+                                : const Color(0xFFEDE7F6),
                         child: Icon(
                           isExpense
                               ? Icons.arrow_upward
@@ -160,39 +213,36 @@ class FinanceOverviewScreen extends StatelessWidget {
                                   ? Icons.arrow_downward
                                   : Icons.sync_alt,
                           color: isExpense
-                              ? AppTheme.gentleRose
+                              ? AppTheme.coralPrimary
                               : isIncome
-                                  ? const Color(0xFF059669)
-                                  : const Color(0xFF4F46E5),
+                                  ? const Color(0xFF2E7D32)
+                                  : const Color(0xFF5E35B1),
                           size: 18,
                         ),
                       ),
                       title: Text(
                         tx.memo,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                       ),
                       subtitle: Text(
                         '${tx.type.name.toUpperCase()} • ${AppDateUtils.formatShortDate(tx.effectiveAt)}',
-                        style: const TextStyle(fontSize: 12),
+                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                       ),
-                      trailing: Chip(
-                        label: Text(
-                          tx.type == TransactionType.transfer ? 'NEUTRAL' : 'POSTED',
-                          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF3F4F6),
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                        backgroundColor: const Color(0xFFF1F5F9),
+                        child: Text(
+                          tx.type == TransactionType.transfer ? 'NEUTRAL' : 'POSTED',
+                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                        ),
                       ),
                     ),
                   );
                 }),
             ],
-          ),
-          floatingActionButton: FloatingActionButton.extended(
-            icon: const Icon(Icons.add),
-            label: const Text('Add Transaction'),
-            backgroundColor: AppTheme.sereneTeal,
-            foregroundColor: Colors.white,
-            onPressed: onAddTransaction,
           ),
         );
       },

@@ -15,111 +15,297 @@ class SettingsScreen extends StatelessWidget {
         final profile = db.userProfile;
 
         return Scaffold(
-          appBar: AppBar(
-            title: const Text('Settings & Security'),
-          ),
-          body: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              // Owner Profile Card
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+          backgroundColor: AppTheme.creamCanvas,
+          body: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(20, 56, 20, 24),
+                  decoration: const BoxDecoration(
+                    gradient: AppTheme.coralMeshGradient,
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(32),
+                      bottomRight: Radius.circular(32),
+                    ),
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const CircleAvatar(
-                            backgroundColor: AppTheme.sereneTeal,
-                            child: Icon(Icons.person, color: Colors.white),
+                          GestureDetector(
+                            onTap: () => Navigator.of(context).pop(),
+                            child: Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.25),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                            ),
                           ),
-                          const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(profile.displayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                              Text('Timezone: ${profile.timezone} • Currency: ${profile.currency}', style: const TextStyle(fontSize: 12, color: AppTheme.mutedGray)),
-                            ],
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.22),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.white.withOpacity(0.35)),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.shield_outlined, size: 14, color: Colors.white),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Zero Telemetry',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Privacy Blur Mode'),
-                        subtitle: const Text('Masks financial balances and spiritual notes'),
-                        value: profile.privacyModeEnabled,
-                        activeColor: AppTheme.sereneTeal,
-                        onChanged: (val) {
-                          db.updateUserProfile(profile.copyWith(privacyModeEnabled: val));
-                        },
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Security & System',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: -0.5,
+                        ),
                       ),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('24-Hour Clock Display'),
-                        subtitle: const Text('Toggle between 12-hour (AM/PM) and 24-hour'),
-                        value: profile.is24Hour,
-                        activeColor: AppTheme.sereneTeal,
-                        onChanged: (val) {
-                          db.updateUserProfile(profile.copyWith(is24Hour: val));
-                        },
+                      const SizedBox(height: 6),
+                      Text(
+                        'Offline privacy blur, local encryption & authenticated backups',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.white.withOpacity(0.9),
+                        ),
                       ),
                     ],
                   ),
                 ),
               ),
-
-              const SizedBox(height: 16),
-              // Security & Backup
-              const Text('Encrypted Backup & Portability (BR-13)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              const SizedBox(height: 8),
-              Card(
-                child: Column(
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.lock_outline, color: AppTheme.sereneTeal),
-                      title: const Text('Create Encrypted Backup (.plos)'),
-                      subtitle: const Text('Export authenticated AES-GCM archive with SHA-256 manifest'),
-                      onTap: () => _showCreateBackupDialog(context),
-                    ),
-                    const Divider(height: 1),
-                    ListTile(
-                      leading: const Icon(Icons.restore, color: Color(0xFF4F46E5)),
-                      title: const Text('Restore from Backup'),
-                      subtitle: const Text('Atomic staging validation before live database swap'),
-                      onTap: () => _showRestoreBackupDialog(context),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 16),
-              // Diagnostics & Storage
-              const Text('Diagnostics & Data Hygiene', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              const SizedBox(height: 8),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Tasks stored: ${db.getTasks().length}'),
-                      const SizedBox(height: 4),
-                      Text('Accounts configured: ${db.getFinancialAccounts().length}'),
-                      const SizedBox(height: 4),
-                      Text('Financial postings: ${db.getLedgerTransactions().length}'),
-                      const SizedBox(height: 4),
-                      Text('Routine templates: ${db.getRoutineTemplates().length}'),
-                      const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.delete_forever, color: AppTheme.gentleRose),
-                        label: const Text('Wipe All Local Data', style: TextStyle(color: AppTheme.gentleRose)),
-                        style: OutlinedButton.styleFrom(side: const BorderSide(color: AppTheme.gentleRose)),
-                        onPressed: () => _showConfirmWipeDialog(context, db),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    // Owner Profile Card
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: AppTheme.floatingCardDecoration,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 50,
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  gradient: AppTheme.coralMeshGradient,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Center(
+                                  child: Icon(Icons.person, color: Colors.white, size: 28),
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      profile.displayName,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 17,
+                                        color: AppTheme.darkCharcoal,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      '${profile.timezone} • Currency ${profile.currency}',
+                                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                          const SizedBox(height: 8),
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text(
+                              'Privacy Blur Mode',
+                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.darkCharcoal),
+                            ),
+                            subtitle: Text('Masks liquid balances and devotional logs', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                            value: profile.privacyModeEnabled,
+                            activeColor: AppTheme.coralPrimary,
+                            onChanged: (val) {
+                              db.updateUserProfile(profile.copyWith(privacyModeEnabled: val));
+                            },
+                          ),
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text(
+                              '24-Hour Clock Display',
+                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppTheme.darkCharcoal),
+                            ),
+                            subtitle: Text('Format timeline into military or 12-hour AM/PM', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                            value: profile.is24Hour,
+                            activeColor: AppTheme.coralPrimary,
+                            onChanged: (val) {
+                              db.updateUserProfile(profile.copyWith(is24Hour: val));
+                            },
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Encrypted Portability (BR-13)',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.darkCharcoal),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      decoration: AppTheme.floatingCardDecoration,
+                      child: Column(
+                        children: [
+                          ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                            leading: Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: AppTheme.peachPillBg,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Icon(Icons.lock_outline, color: AppTheme.coralPrimary, size: 22),
+                            ),
+                            title: const Text(
+                              'Create Encrypted Backup (.plos)',
+                              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppTheme.darkCharcoal),
+                            ),
+                            subtitle: Text(
+                              'Authenticated AES-GCM container with SHA-256 manifest',
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                            ),
+                            trailing: const Icon(Icons.chevron_right, color: AppTheme.darkCharcoal),
+                            onTap: () => _showCreateBackupDialog(context),
+                          ),
+                          const Divider(height: 1, indent: 70, color: Color(0xFFF1F5F9)),
+                          ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                            leading: Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEEF2FF),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Icon(Icons.restore, color: Color(0xFF4F46E5), size: 22),
+                            ),
+                            title: const Text(
+                              'Restore from Backup Container',
+                              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppTheme.darkCharcoal),
+                            ),
+                            subtitle: Text(
+                              'Atomic staging verification before live database swap',
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                            ),
+                            trailing: const Icon(Icons.chevron_right, color: AppTheme.darkCharcoal),
+                            onTap: () => _showRestoreBackupDialog(context),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Diagnostics & Hygiene',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.darkCharcoal),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: AppTheme.floatingCardDecoration,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Active Tasks', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                              Text('${db.getTasks().length}', style: const TextStyle(fontWeight: FontWeight.w800, color: AppTheme.darkCharcoal)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Financial Accounts', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                              Text('${db.getFinancialAccounts().length}', style: const TextStyle(fontWeight: FontWeight.w800, color: AppTheme.darkCharcoal)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Ledger Postings', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                              Text('${db.getLedgerTransactions().length}', style: const TextStyle(fontWeight: FontWeight.w800, color: AppTheme.darkCharcoal)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Routine Templates', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                              Text('${db.getRoutineTemplates().length}', style: const TextStyle(fontWeight: FontWeight.w800, color: AppTheme.darkCharcoal)),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          GestureDetector(
+                            onTap: () => _showConfirmWipeDialog(context, db),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF1F2),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: const Color(0xFFFECDD3)),
+                              ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.delete_forever, color: Color(0xFFE11D48), size: 18),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Wipe All Local Data',
+                                    style: TextStyle(
+                                      color: Color(0xFFE11D48),
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ]),
                 ),
               ),
             ],

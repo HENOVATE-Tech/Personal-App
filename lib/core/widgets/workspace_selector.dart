@@ -18,18 +18,29 @@ class WorkspaceSelector extends StatelessWidget {
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Row(
         children: [
           // "All Workspaces" Chip
           Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: FilterChip(
+            child: ChoiceChip(
               label: const Text('All Workspaces'),
               selected: selectedWorkspaceId.isEmpty,
               onSelected: (_) => onWorkspaceChanged(''),
-              selectedColor: AppTheme.sereneTeal.withOpacity(0.2),
-              checkmarkColor: AppTheme.sereneTeal,
+              selectedColor: const Color(0xFFFFECE5),
+              backgroundColor: Colors.white,
+              labelStyle: TextStyle(
+                color: selectedWorkspaceId.isEmpty ? AppTheme.coralPrimary : AppTheme.textSecondary,
+                fontWeight: selectedWorkspaceId.isEmpty ? FontWeight.bold : FontWeight.w600,
+                fontSize: 12,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                  color: selectedWorkspaceId.isEmpty ? AppTheme.coralPrimary : const Color(0xFFE5E7EB),
+                ),
+              ),
             ),
           ),
           ...workspaces.map((ws) {
@@ -38,16 +49,27 @@ class WorkspaceSelector extends StatelessWidget {
 
             return Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: FilterChip(
+              child: ChoiceChip(
                 avatar: CircleAvatar(
-                  radius: 6,
+                  radius: 5,
                   backgroundColor: chipColor,
                 ),
                 label: Text(ws.name),
                 selected: isSelected,
                 onSelected: (_) => onWorkspaceChanged(ws.id),
-                selectedColor: chipColor.withOpacity(0.18),
-                checkmarkColor: chipColor,
+                selectedColor: const Color(0xFFFFECE5),
+                backgroundColor: Colors.white,
+                labelStyle: TextStyle(
+                  color: isSelected ? AppTheme.coralPrimary : AppTheme.textSecondary,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                  fontSize: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(
+                    color: isSelected ? AppTheme.coralPrimary : const Color(0xFFE5E7EB),
+                  ),
+                ),
               ),
             );
           }),

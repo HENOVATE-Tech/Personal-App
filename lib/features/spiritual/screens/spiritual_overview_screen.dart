@@ -20,145 +20,372 @@ class SpiritualOverviewScreen extends StatelessWidget {
         final fastingSchedule = RecurrenceEngine.getFastingScheduleForMonth(year: now.year, month: now.month);
 
         return Scaffold(
-          appBar: AppBar(
-            title: const Text('Spiritual Practice'),
-          ),
-          body: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              // Gentle Continuity Card
-              const Card(
-                color: Color(0xFFEEF2FF),
-                child: Padding(
-                  padding: EdgeInsets.all(16.0),
+          backgroundColor: AppTheme.creamCanvas,
+          body: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(20, 56, 20, 24),
+                  decoration: const BoxDecoration(
+                    gradient: AppTheme.coralMeshGradient,
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(32),
+                      bottomRight: Radius.circular(32),
+                    ),
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Icon(Icons.spa, color: Color(0xFF4F46E5), size: 20),
-                          SizedBox(width: 8),
-                          Text(
-                            'Gentle Continuity & Quiet Devotion',
-                            style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF3730A3)),
+                          GestureDetector(
+                            onTap: () => Navigator.of(context).pop(),
+                            child: Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.25),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.22),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.white.withOpacity(0.35)),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.spa, size: 14, color: Colors.white),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Continuous Practice',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Spiritual Life',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
                       Text(
-                        'Spiritual growth is a sustainable relationship, not a gamified points competition. '
-                        'No streaks are broken here; return calmly at your next scheduled time.',
-                        style: TextStyle(fontSize: 13, color: Color(0xFF4338CA)),
+                        'Sustainable relationship, quiet devotion & Scripture reflections',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.white.withOpacity(0.9),
+                        ),
                       ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
-
-              // Devotion Slots
-              const Text(
-                'Configured Devotional Slots',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              ...routines.map((r) {
-                return Card(
-                  child: ListTile(
-                    leading: Icon(
-                      r.isCompletedToday ? Icons.check_circle : Icons.radio_button_unchecked,
-                      color: r.isCompletedToday ? AppTheme.sereneTeal : AppTheme.mutedGray,
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    // Gentle Continuity Hero Card
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: AppTheme.floatingCardDecoration,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: AppTheme.peachPillBg,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Icon(Icons.favorite_border, color: AppTheme.coralPrimary, size: 22),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Gentle Continuity Guarantee',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 15,
+                                    color: AppTheme.darkCharcoal,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'No streaks to break. If a devotion was missed, return peacefully without penalties or guilt scores.',
+                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600, height: 1.3),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    title: Text(r.title, style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text('Preferred time: ${r.preferredTimeLocal} (${r.targetDurationMins}m target)'),
-                    trailing: OutlinedButton(
-                      child: Text(r.isCompletedToday ? 'Done' : 'Mark Done'),
-                      onPressed: () => db.toggleRoutineCompleted(r.id),
+                    const SizedBox(height: 24),
+
+                    // Devotion Slots Title
+                    const Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Devotional Slots',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.darkCharcoal,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                );
-              }),
+                    const SizedBox(height: 12),
+                    ...routines.map((r) {
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(16),
+                        decoration: AppTheme.floatingCardDecoration,
+                        child: Row(
+                          children: [
+                            GestureDetector(
+                              onTap: () => db.toggleRoutineCompleted(r.id),
+                              child: Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  color: r.isCompletedToday ? AppTheme.sereneTeal : Colors.transparent,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: r.isCompletedToday ? AppTheme.sereneTeal : AppTheme.coralPrimary.withOpacity(0.5),
+                                    width: 2,
+                                  ),
+                                ),
+                                child: r.isCompletedToday
+                                    ? const Icon(Icons.check, size: 16, color: Colors.white)
+                                    : null,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    r.title,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 15,
+                                      color: r.isCompletedToday ? Colors.grey : AppTheme.darkCharcoal,
+                                      decoration: r.isCompletedToday ? TextDecoration.lineThrough : null,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    '${r.preferredTimeLocal} • ${r.targetDurationMins}m target',
+                                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: r.isCompletedToday ? const Color(0xFFD1FAE5) : AppTheme.peachPillBg,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                r.isCompletedToday ? 'Completed' : 'Pending',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: r.isCompletedToday ? const Color(0xFF059669) : AppTheme.coralPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
 
-              const SizedBox(height: 16),
-              // Fasting Schedule
-              const Text(
-                'Recurring Fasting Dates (This Month)',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Weekly Mon/Fri + monthly 3-day weekend fast (deduplicated on Friday).',
-                style: TextStyle(fontSize: 12, color: AppTheme.mutedGray),
-              ),
-              const SizedBox(height: 8),
-
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: fastingSchedule.map((d) {
-                  final isPast = d.isBefore(DateTime(now.year, now.month, now.day));
-                  final isToday = AppDateUtils.isSameDay(d, now);
-
-                  return Chip(
-                    backgroundColor: isToday
-                        ? const Color(0xFF2563EB)
-                        : (isPast ? const Color(0xFFF1F5F9) : const Color(0xFFEFF6FF)),
-                    label: Text(
-                      '${d.day} ${_monthShort(d.month)} (${_weekdayShort(d.weekday)})',
+                    const SizedBox(height: 24),
+                    // Fasting Schedule
+                    const Text(
+                      'Fasting Schedule (This Month)',
                       style: TextStyle(
-                        fontSize: 11,
-                        color: isToday ? Colors.white : AppTheme.slateNavy,
-                        fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.darkCharcoal,
                       ),
                     ),
-                  );
-                }).toList(),
-              ),
-
-              const SizedBox(height: 24),
-              // Prayer Journal
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Prayer Journal Entries',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                  ),
-                  TextButton.icon(
-                    icon: const Icon(Icons.add, size: 16),
-                    label: const Text('Add Entry'),
-                    onPressed: () => _showAddPrayerDialog(context),
-                  ),
-                ],
-              ),
-
-              if (prayerSessions.isEmpty)
-                const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Center(
-                      child: Text(
-                        'No prayer journal entries recorded yet. Tap "+ Add Entry" to record reflections.',
-                        style: TextStyle(color: AppTheme.mutedGray),
-                      ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Weekly Mon/Fri & monthly 3-day weekend fast (deduplicated on Friday).',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                     ),
-                  ),
-                )
-              else
-                ...prayerSessions.map((p) {
-                  return Card(
-                    child: ListTile(
-                      title: Text(p.theme, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text('${p.scriptureRefs} • ${p.actualDurationMins} mins'),
-                      trailing: p.isAnswered
-                          ? const Chip(
-                              label: Text('ANSWERED', style: TextStyle(fontSize: 9, color: Color(0xFF059669))),
-                              backgroundColor: Color(0xFFD1FAE5),
-                            )
-                          : null,
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: fastingSchedule.map((d) {
+                        final isPast = d.isBefore(DateTime(now.year, now.month, now.day));
+                        final isToday = AppDateUtils.isSameDay(d, now);
+
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isToday
+                                ? AppTheme.darkCharcoal
+                                : (isPast ? Colors.grey.shade100 : Colors.white),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isToday ? AppTheme.darkCharcoal : Colors.black.withOpacity(0.06),
+                            ),
+                            boxShadow: isToday ? AppTheme.floatingCardDecoration.boxShadow : null,
+                          ),
+                          child: Text(
+                            '${d.day} ${_monthShort(d.month)} (${_weekdayShort(d.weekday)})',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isToday ? Colors.white : (isPast ? Colors.grey : AppTheme.darkCharcoal),
+                              fontWeight: isToday ? FontWeight.w800 : FontWeight.w600,
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     ),
-                  );
-                }),
+
+                    const SizedBox(height: 28),
+                    // Prayer Journal
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Prayer Journal',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.darkCharcoal,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => _showAddPrayerDialog(context),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: AppTheme.darkCharcoal,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.add, size: 14, color: Colors.white),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Add Entry',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    if (prayerSessions.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: AppTheme.floatingCardDecoration,
+                        child: Center(
+                          child: Text(
+                            'No prayer journal entries recorded yet.\nTap "+ Add Entry" to capture your reflections.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.grey.shade500, fontSize: 13, height: 1.4),
+                          ),
+                        ),
+                      )
+                    else
+                      ...prayerSessions.map((p) {
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(16),
+                          decoration: AppTheme.floatingCardDecoration,
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 42,
+                                height: 42,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.offWhiteBg,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(Icons.menu_book, color: AppTheme.coralPrimary, size: 20),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      p.theme,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 14,
+                                        color: AppTheme.darkCharcoal,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${p.scriptureRefs} • ${p.actualDurationMins} mins',
+                                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (p.isAnswered)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFD1FAE5),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Text(
+                                    'Answered',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF059669),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      }),
+                  ]),
+                ),
+              ),
             ],
           ),
         );
