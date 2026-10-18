@@ -8,6 +8,8 @@ import '../../../core/utils/recurrence_engine.dart';
 import '../../../core/widgets/privacy_blur_wrapper.dart';
 import '../../../core/widgets/workspace_selector.dart';
 import '../../recovery/services/commitment_recovery_engine.dart';
+import '../../lifestyle/screens/lifestyle_hub_screen.dart';
+import '../../spiritual/screens/spiritual_overview_screen.dart';
 
 class TodayDashboardScreen extends StatefulWidget {
   final VoidCallback onQuickExpense;
@@ -349,17 +351,15 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
                         icon: Icons.timer_outlined,
                         label: 'Focus Timer',
                         onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Focus session ready in Tasks tab!')),
-                          );
+                          _showFocusTimerDialog(context);
                         },
                       ),
                       _buildServiceItem(
                         icon: Icons.checkroom_outlined,
                         label: 'Wardrobe',
                         onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Wardrobe planner accessible in More tab.')),
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const LifestyleHubScreen()),
                           );
                         },
                       ),
@@ -367,8 +367,8 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
                         icon: Icons.auto_stories_outlined,
                         label: 'Devotion',
                         onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Devotion slots accessible in Plan tab.')),
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const SpiritualOverviewScreen()),
                           );
                         },
                       ),
@@ -724,6 +724,87 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
                 fontWeight: FontWeight.w700,
                 color: AppTheme.textPrimary,
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showFocusTimerDialog(BuildContext context) {
+    int durationMins = 25;
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          title: const Text('Start Focus Session', style: TextStyle(fontWeight: FontWeight.w800)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 90,
+                height: 90,
+                decoration: const BoxDecoration(
+                  gradient: AppTheme.coralMeshGradient,
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    '$durationMins:00',
+                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [5, 25, 50].map((mins) {
+                  final isSelected = durationMins == mins;
+                  return GestureDetector(
+                    onTap: () => setDialogState(() => durationMins = mins),
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppTheme.darkCharcoal : const Color(0xFFF3F4F6),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        '${mins}m',
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : AppTheme.textPrimary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Focus block will be recorded in time logs.',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Focus session started for $durationMins minutes!'),
+                    backgroundColor: AppTheme.coralPrimary,
+                  ),
+                );
+              },
+              child: const Text('Start Focus'),
             ),
           ],
         ),
