@@ -61,11 +61,11 @@ class ApiService {
   static final ApiService instance = ApiService._internal();
   ApiService._internal();
 
-  /// Default production Render URL or fallback local address
-  static const String defaultRenderUrl = 'https://personal-life-os-api.onrender.com';
+  /// Production Render URL
+  static const String defaultRenderUrl = 'https://personal-app-3hgg.onrender.com';
   static const String localUrl = 'http://localhost:5000';
 
-  String _baseUrl = localUrl;
+  String _baseUrl = defaultRenderUrl;
 
   String get baseUrl => _baseUrl;
 

@@ -57,7 +57,7 @@ app.use('/api/tasks', tasksRouter);
 app.use('/api/finance', financeRouter);
 
 // Start Server
-app.listen(port, () => {
-  console.log(`🚀 Personal Life OS API running on port ${port}`);
-  console.log(`📊 Health check available at http://localhost:${port}/health`);
+app.listen(Number(port), '0.0.0.0', () => {
+  console.log(`🚀 Personal Life OS API running on http://0.0.0.0:${port}`);
+  console.log(`📊 Health check available at http://0.0.0.0:${port}/health`);
 });
