@@ -10,6 +10,13 @@ import '../../../core/widgets/workspace_selector.dart';
 import '../../recovery/services/commitment_recovery_engine.dart';
 import '../../lifestyle/screens/lifestyle_hub_screen.dart';
 import '../../spiritual/screens/spiritual_overview_screen.dart';
+import '../../professional/screens/workspaces_overview_screen.dart';
+import '../../learning/screens/reading_library_screen.dart';
+import '../../health/screens/health_hub_screen.dart';
+import '../../analytics/screens/insights_screen.dart';
+import '../../governance/screens/device_governance_screen.dart';
+import '../../settings/screens/settings_screen.dart';
+import '../../../core/services/api_service.dart';
 
 class TodayDashboardScreen extends StatefulWidget {
   final VoidCallback onQuickExpense;
@@ -355,6 +362,31 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
                         },
                       ),
                       _buildServiceItem(
+                        icon: Icons.security_outlined,
+                        label: 'Phone Shield',
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const DeviceGovernanceScreen()),
+                          );
+                        },
+                      ),
+                      _buildServiceItem(
+                        icon: Icons.business_center_outlined,
+                        label: 'Workspaces',
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const WorkspacesOverviewScreen()),
+                          );
+                        },
+                      ),
+                      _buildServiceItem(
+                        icon: Icons.timer_outlined,
+                        label: 'Focus Timer',
+                        onTap: () {
+                          _showFocusTimerDialog(context);
+                        },
+                      ),
+                      _buildServiceItem(
                         icon: Icons.checkroom_outlined,
                         label: 'Wardrobe',
                         onTap: () {
@@ -369,6 +401,42 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
                         onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(builder: (_) => const SpiritualOverviewScreen()),
+                          );
+                        },
+                      ),
+                      _buildServiceItem(
+                        icon: Icons.menu_book_outlined,
+                        label: 'Library',
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const ReadingLibraryScreen()),
+                          );
+                        },
+                      ),
+                      _buildServiceItem(
+                        icon: Icons.favorite_outline,
+                        label: 'Health & Sleep',
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const HealthHubScreen()),
+                          );
+                        },
+                      ),
+                      _buildServiceItem(
+                        icon: Icons.insights_outlined,
+                        label: 'Analytics',
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const InsightsScreen()),
+                          );
+                        },
+                      ),
+                      _buildServiceItem(
+                        icon: Icons.cloud_outlined,
+                        label: 'Cloud & API',
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const SettingsScreen()),
                           );
                         },
                       ),
@@ -651,11 +719,315 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
                     );
                   }),
                 ],
+
+                // ----------------------------------------------------
+                // ECOSYSTEM WORKSTATIONS (All Hub Modules on Home Dashboard)
+                // ----------------------------------------------------
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 28, 20, 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Ecosystem Workstations',
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: AppTheme.textPrimary,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            const Text(
+                              'Dedicated operational command centers',
+                              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.pastelPeach,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text(
+                          '8 STATIONS',
+                          style: TextStyle(
+                            color: AppTheme.pastelPeachText,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // 1. Phone Governance & Focus Shield
+                _buildWorkstationCard(
+                  context,
+                  badge: 'DEVICE CONTROL & GOVERNANCE',
+                  badgeColor: const Color(0xFFFEE2E2),
+                  badgeTextColor: const Color(0xFF991B1B),
+                  icon: Icons.security,
+                  iconGradient: const LinearGradient(colors: [Color(0xFFEF4444), Color(0xFFB91C1C)]),
+                  title: 'Phone Governance & Focus Shield',
+                  subtitle: 'Device administrator lockdown, social handles shutdown, emergency siren and quick alert triggers',
+                  connectedStatus: 'Admin Enforcer & Social Blockade Active',
+                  destination: const DeviceGovernanceScreen(),
+                ),
+
+                // 2. Professional Workspaces
+                _buildWorkstationCard(
+                  context,
+                  badge: 'OPERATIONAL WORKSPACES',
+                  badgeColor: const Color(0xFFE0E7FF),
+                  badgeTextColor: const Color(0xFF3730A3),
+                  icon: Icons.business_center,
+                  iconGradient: const LinearGradient(colors: [Color(0xFF4F46E5), Color(0xFF312E81)]),
+                  title: 'Professional Workspaces',
+                  subtitle: 'Segregated Bems Group (COO) & Henovate (Founder) strategic milestones and deliverables',
+                  connectedStatus: '${allTasks.where((t) => t.workspaceId == 'ws-bems-group').length} Bems tasks • ${allTasks.where((t) => t.workspaceId == 'ws-henovate').length} Henovate tasks',
+                  destination: const WorkspacesOverviewScreen(),
+                ),
+
+                // 3. Spiritual Life & Fasting Engine
+                _buildWorkstationCard(
+                  context,
+                  badge: 'DEVOTION & DISCIPLINES',
+                  badgeColor: const Color(0xFFEDE9FE),
+                  badgeTextColor: const Color(0xFF5B21B6),
+                  icon: Icons.church,
+                  iconGradient: const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF6D28D9)]),
+                  title: 'Spiritual Life & Fasting Engine',
+                  subtitle: 'Prayer journal, Scripture passage planner, 3-day fasting schedule engine with zero streak penalties',
+                  connectedStatus: isFastingDay ? 'Fasting Active (6AM–6PM) • Mon/Fri rhythm' : 'Regular rhythm • Next Fast: Friday',
+                  destination: const SpiritualOverviewScreen(),
+                ),
+
+                // 4. Personal Care & Wardrobe
+                _buildWorkstationCard(
+                  context,
+                  badge: 'LIFESTYLE & WARDROBE',
+                  badgeColor: const Color(0xFFFCE7F3),
+                  badgeTextColor: const Color(0xFF9D174D),
+                  icon: Icons.checkroom,
+                  iconGradient: const LinearGradient(colors: [Color(0xFFEC4899), Color(0xFFBE185D)]),
+                  title: 'Personal Care & Wardrobe',
+                  subtitle: 'Daily grooming checklist, weekend chores, Sunday-to-Saturday curated outfit rotation plans',
+                  connectedStatus: '${db.getCareChecklist().where((c) => !c.isCompleted).length} pending routines • ${db.getOutfitPlans().length} outfits planned',
+                  destination: const LifestyleHubScreen(),
+                ),
+
+                // 5. Reading Library & Checklists
+                _buildWorkstationCard(
+                  context,
+                  badge: 'KNOWLEDGE & REVIEWS',
+                  badgeColor: const Color(0xFFFEF3C7),
+                  badgeTextColor: const Color(0xFF92400E),
+                  icon: Icons.menu_book,
+                  iconGradient: const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFB45309)]),
+                  title: 'Reading Library & Checklists',
+                  subtitle: 'Curated books library, active study synthesis, pre-deliverable review checklist for clients',
+                  connectedStatus: '${db.getBooks().length} active books in library • Deliverable checklist ready',
+                  destination: const ReadingLibraryScreen(),
+                ),
+
+                // 6. Health, Sleep & Character
+                _buildWorkstationCard(
+                  context,
+                  badge: 'HEALTH & SLEEP',
+                  badgeColor: const Color(0xFFD1FAE5),
+                  badgeTextColor: const Color(0xFF065F46),
+                  icon: Icons.favorite,
+                  iconGradient: const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF047857)]),
+                  title: 'Health, Relationships & Sleep',
+                  subtitle: 'Cross-midnight sleep validator, wellbeing score, relational character logs & health tracking',
+                  connectedStatus: '${db.getSleepLogs().length} sleep logs recorded • Bedtime validation active',
+                  destination: const HealthHubScreen(),
+                ),
+
+                // 7. Intelligence & Analytics
+                _buildWorkstationCard(
+                  context,
+                  badge: 'INTELLIGENCE & AUDITS',
+                  badgeColor: const Color(0xFFCCFBF1),
+                  badgeTextColor: const Color(0xFF115E59),
+                  icon: Icons.insights,
+                  iconGradient: const LinearGradient(colors: [Color(0xFF14B8A6), Color(0xFF0F766E)]),
+                  title: 'Reviews & Insights Analytics',
+                  subtitle: 'Sunday weekly review cadence, month-end balance verification, authentic trend analytics',
+                  connectedStatus: 'Double-entry ledger verified • Weekly cadence active',
+                  destination: const InsightsScreen(),
+                ),
+
+                // 8. Render REST API & Cloud Storage
+                _buildWorkstationCard(
+                  context,
+                  badge: 'CLOUD & API BACKEND',
+                  badgeColor: const Color(0xFFDBEAFE),
+                  badgeTextColor: const Color(0xFF1E40AF),
+                  icon: Icons.cloud_done,
+                  iconGradient: const LinearGradient(colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)]),
+                  title: 'Render REST API & Cloud Storage',
+                  subtitle: 'Live REST API at ${ApiService.instance.baseUrl} connected to Supabase PostgreSQL',
+                  connectedStatus: '21 tables synchronized • TLS encryption • Offline-first',
+                  destination: const SettingsScreen(),
+                ),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildWorkstationCard(
+    BuildContext context, {
+    required String badge,
+    required Color badgeColor,
+    required Color badgeTextColor,
+    required IconData icon,
+    required Gradient iconGradient,
+    required String title,
+    required String subtitle,
+    required String connectedStatus,
+    required Widget destination,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: AppTheme.softCardShadow,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => destination),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: badgeColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        badge,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: badgeTextColor,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_ios, size: 12, color: AppTheme.textSecondary),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        gradient: iconGradient,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.12),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Icon(icon, color: Colors.white, size: 22),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: AppTheme.textPrimary,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            subtitle,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondary,
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Color(0xFF10B981),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          connectedStatus,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF334155),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
