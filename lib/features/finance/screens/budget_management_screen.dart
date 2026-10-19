@@ -781,10 +781,71 @@ class _BudgetManagementScreenState extends State<BudgetManagementScreen> {
                               ],
                             ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.edit_note, color: AppTheme.textSecondary),
-                            tooltip: 'Set Budget',
-                            onPressed: () => _openSetBudgetDialog(cat, budget),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit_note, color: AppTheme.textSecondary),
+                                tooltip: 'Set Budget',
+                                onPressed: () => _openSetBudgetDialog(cat, budget),
+                              ),
+                              PopupMenuButton<String>(
+                                icon: const Icon(Icons.more_vert, size: 18, color: AppTheme.textSecondary),
+                                onSelected: (action) {
+                                  if (action == 'budget') {
+                                    _openSetBudgetDialog(cat, budget);
+                                  } else if (action == 'delete') {
+                                    showDialog(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                        title: const Text('Delete Category?'),
+                                        content: Text('Are you sure you want to delete "${cat.name}"?'),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(ctx),
+                                            child: const Text('Cancel'),
+                                          ),
+                                          ElevatedButton(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFFEF4444),
+                                              foregroundColor: Colors.white,
+                                            ),
+                                            onPressed: () {
+                                              LocalDatabase.instance.deleteFinancialCategory(cat.id);
+                                              Navigator.pop(ctx);
+                                            },
+                                            child: const Text('Delete'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }
+                                },
+                                itemBuilder: (ctx) => [
+                                  const PopupMenuItem(
+                                    value: 'budget',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.savings_outlined, size: 16),
+                                        SizedBox(width: 8),
+                                        Text('Set Budget'),
+                                      ],
+                                    ),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'delete',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.delete_outline, size: 16, color: Colors.red),
+                                        SizedBox(width: 8),
+                                        Text('Delete Category', style: TextStyle(color: Colors.red)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ],
                       ),

@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/config/theme.dart';
 import '../../../core/database/local_database.dart';
@@ -17,7 +19,7 @@ class _ReadingLibraryScreenState extends State<ReadingLibraryScreen> with Single
   final _uuid = const Uuid();
   String _bookFilter = 'all'; // 'all', 'reading', 'completed'
 
-  final List<Map<String, dynamic>> _checklistItems = [
+  List<Map<String, dynamic>> _checklistItems = [
     {
       'id': 'chk-math',
       'title': 'Mathematical & Calculation Accuracy',
@@ -54,6 +56,25 @@ class _ReadingLibraryScreenState extends State<ReadingLibraryScreen> with Single
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _loadChecklist();
+  }
+
+  Future<void> _loadChecklist() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString('plos_readiness_checklist');
+    if (saved != null && saved.isNotEmpty) {
+      try {
+        final List list = jsonDecode(saved);
+        setState(() {
+          _checklistItems = list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        });
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _saveChecklist() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('plos_readiness_checklist', jsonEncode(_checklistItems));
   }
 
   @override
@@ -281,6 +302,16 @@ class _ReadingLibraryScreenState extends State<ReadingLibraryScreen> with Single
                 ),
               ],
             ),
+            const SizedBox(height: 8),
+            TextButton(
+              style: TextButton.styleFrom(foregroundColor: const Color(0xFFEF4444)),
+              onPressed: () {
+                db.deleteBook(b.id);
+                Navigator.of(ctx).pop();
+                setState(() {});
+              },
+              child: const Text('Delete Book from Library'),
+            ),
           ],
         ),
       ),
@@ -365,6 +396,7 @@ class _ReadingLibraryScreenState extends State<ReadingLibraryScreen> with Single
                     'checked': false,
                   });
                 });
+                _saveChecklist();
                 Navigator.of(ctx).pop();
               },
               child: const Text('Add Checkpoint', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
@@ -650,6 +682,11 @@ class _ReadingLibraryScreenState extends State<ReadingLibraryScreen> with Single
                                 tooltip: 'Update Page Progress',
                                 onPressed: () => _showUpdateProgressDialog(context, b, db),
                               ),
+                              IconButton(
+                                icon: Icon(Icons.delete_outline, size: 18, color: Colors.grey.shade400),
+                                tooltip: 'Delete Book',
+                                onPressed: () => db.deleteBook(b.id),
+                              ),
                             ],
                           ),
                         );
@@ -749,6 +786,7 @@ class _ReadingLibraryScreenState extends State<ReadingLibraryScreen> with Single
                                 setState(() {
                                   chk['checked'] = val ?? false;
                                 });
+                                _saveChecklist();
                               },
                             ),
                             const SizedBox(width: 10),
@@ -772,6 +810,16 @@ class _ReadingLibraryScreenState extends State<ReadingLibraryScreen> with Single
                                   ),
                                 ],
                               ),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.close, size: 16, color: Colors.grey.shade400),
+                              tooltip: 'Remove Checkpoint',
+                              onPressed: () {
+                                setState(() {
+                                  _checklistItems.removeWhere((c) => c['id'] == chk['id']);
+                                });
+                                _saveChecklist();
+                              },
                             ),
                           ],
                         ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 import '../../../core/config/theme.dart';
 import '../../../core/database/local_database.dart';
 import '../../../core/database/schema_models.dart';
@@ -23,6 +24,120 @@ class FinanceOverviewScreen extends StatefulWidget {
 class _FinanceOverviewScreenState extends State<FinanceOverviewScreen> {
   bool _isCalendarMode = false;
   DateTime _selectedCalendarDay = DateTime.now();
+
+  void _openAddOrEditAccountDialog(BuildContext context, {FinancialAccount? existing}) {
+    final nameCtrl = TextEditingController(text: existing?.name ?? '');
+    final balanceCtrl = TextEditingController(
+      text: existing != null ? (existing.balanceKobo / 100).toStringAsFixed(0) : '0',
+    );
+    AccountType selectedType = existing?.accountType ?? AccountType.bank;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              title: Row(
+                children: [
+                  Icon(
+                    existing == null ? Icons.account_balance_wallet_outlined : Icons.edit,
+                    color: AppTheme.coralPrimary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    existing == null ? 'Add Financial Account' : 'Edit Account',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Account Name',
+                        hintText: 'e.g. Zenith Corporate, Kuda Savings, Cash Vault',
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text('Account Type', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                    const SizedBox(height: 4),
+                    DropdownButtonFormField<AccountType>(
+                      value: selectedType,
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: const Color(0xFFF9FAFB),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      items: AccountType.values.map((t) => DropdownMenuItem(
+                        value: t,
+                        child: Text(t.name.toUpperCase()),
+                      )).toList(),
+                      onChanged: (val) {
+                        if (val != null) setDialogState(() => selectedType = val);
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: balanceCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Current Balance (₦)',
+                        hintText: 'e.g. 250,000',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                if (existing != null)
+                  TextButton(
+                    style: TextButton.styleFrom(foregroundColor: const Color(0xFFEF4444)),
+                    onPressed: () {
+                      LocalDatabase.instance.deleteFinancialAccount(existing.id);
+                      Navigator.pop(ctx);
+                    },
+                    child: const Text('Delete'),
+                  ),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.coralPrimary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () {
+                    final name = nameCtrl.text.trim();
+                    if (name.isEmpty) return;
+                    final amt = double.tryParse(balanceCtrl.text.replaceAll(',', '').trim()) ?? 0.0;
+                    final kobo = (amt * 100).round();
+                    final acc = FinancialAccount(
+                      id: existing?.id ?? 'acc-${const Uuid().v4().substring(0, 8)}',
+                      name: name,
+                      accountType: selectedType,
+                      openingBalanceKobo: existing?.openingBalanceKobo ?? kobo,
+                      balanceKobo: kobo,
+                    );
+                    LocalDatabase.instance.upsertFinancialAccount(acc);
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text('Save Account'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 
   void _showSmsDebitApprovalDialog(BuildContext context, SmsDebitAlert alert) {
     final db = LocalDatabase.instance;
@@ -614,9 +729,19 @@ class _FinanceOverviewScreenState extends State<FinanceOverviewScreen> {
               const SizedBox(height: 20),
 
               // Accounts Header
-              const Text(
-                'Accounts & Wallets',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Accounts & Wallets',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
+                  ),
+                  TextButton.icon(
+                    icon: const Icon(Icons.add, size: 16, color: AppTheme.coralPrimary),
+                    label: const Text('Add Account', style: TextStyle(color: AppTheme.coralPrimary, fontWeight: FontWeight.bold, fontSize: 13)),
+                    onPressed: () => _openAddOrEditAccountDialog(context),
+                  ),
+                ],
               ),
               const SizedBox(height: 10),
 
@@ -629,6 +754,7 @@ class _FinanceOverviewScreenState extends State<FinanceOverviewScreen> {
                     boxShadow: AppTheme.softCardShadow,
                   ),
                   child: ListTile(
+                    onTap: () => _openAddOrEditAccountDialog(context, existing: acc),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
                     leading: CircleAvatar(
                       backgroundColor: acc.accountType == AccountType.cash

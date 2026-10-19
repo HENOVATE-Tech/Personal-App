@@ -592,6 +592,11 @@ class _SpiritualOverviewScreenState extends State<SpiritualOverviewScreen> {
                                 );
                               },
                             ),
+                            IconButton(
+                              icon: Icon(Icons.delete_outline, color: Colors.grey.shade400, size: 20),
+                              tooltip: 'Delete Slot',
+                              onPressed: () => db.deleteRoutineTemplate(r.id),
+                            ),
                           ],
                         ),
                       );
@@ -739,24 +744,27 @@ class _SpiritualOverviewScreenState extends State<SpiritualOverviewScreen> {
                               ),
                               const SizedBox(width: 14),
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      p.theme,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 14,
-                                        color: AppTheme.darkCharcoal,
-                                        decoration: p.isAnswered ? TextDecoration.lineThrough : null,
+                                child: InkWell(
+                                  onTap: () => _showAddPrayerDialog(context, p),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        p.theme,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 14,
+                                          color: AppTheme.darkCharcoal,
+                                          decoration: p.isAnswered ? TextDecoration.lineThrough : null,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      '${p.scriptureRefs.isNotEmpty ? p.scriptureRefs : "General petition"} • ${p.actualDurationMins} mins',
-                                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                                    ),
-                                  ],
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '${p.scriptureRefs.isNotEmpty ? p.scriptureRefs : "General petition"} • ${p.actualDurationMins} mins',
+                                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                               TextButton(
@@ -783,6 +791,11 @@ class _SpiritualOverviewScreenState extends State<SpiritualOverviewScreen> {
                                   p.isAnswered ? 'Re-open' : 'Answered! 🎉',
                                   style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                                 ),
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.delete_outline, size: 18, color: Colors.grey.shade400),
+                                tooltip: 'Delete Petition',
+                                onPressed: () => db.deletePrayerSession(p.id),
                               ),
                             ],
                           ),

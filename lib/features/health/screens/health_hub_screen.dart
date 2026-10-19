@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/config/theme.dart';
 import '../../../core/database/local_database.dart';
@@ -18,7 +20,7 @@ class _HealthHubScreenState extends State<HealthHubScreen> with SingleTickerProv
   final _uuid = const Uuid();
   double _todayWaterLiters = 2.0;
 
-  final List<Map<String, dynamic>> _relationships = [
+  List<Map<String, dynamic>> _relationships = [
     {
       'id': 'rel-1',
       'name': 'Spouse & Family Sanctuary',
@@ -45,7 +47,7 @@ class _HealthHubScreenState extends State<HealthHubScreen> with SingleTickerProv
     },
   ];
 
-  final List<Map<String, dynamic>> _workouts = [
+  List<Map<String, dynamic>> _workouts = [
     {
       'id': 'w-1',
       'type': 'Strength & Gym',
@@ -66,6 +68,37 @@ class _HealthHubScreenState extends State<HealthHubScreen> with SingleTickerProv
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _loadHealthData();
+  }
+
+  Future<void> _loadHealthData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final water = prefs.getDouble('plos_today_water');
+    if (water != null) {
+      _todayWaterLiters = water;
+    }
+    final rels = prefs.getString('plos_relationships');
+    if (rels != null && rels.isNotEmpty) {
+      try {
+        final List list = jsonDecode(rels);
+        _relationships = list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      } catch (_) {}
+    }
+    final wks = prefs.getString('plos_workouts');
+    if (wks != null && wks.isNotEmpty) {
+      try {
+        final List list = jsonDecode(wks);
+        _workouts = list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      } catch (_) {}
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _saveHealthData() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('plos_today_water', _todayWaterLiters);
+    await prefs.setString('plos_relationships', jsonEncode(_relationships));
+    await prefs.setString('plos_workouts', jsonEncode(_workouts));
   }
 
   @override
@@ -332,6 +365,7 @@ class _HealthHubScreenState extends State<HealthHubScreen> with SingleTickerProv
                     'notes': notesCtrl.text.trim(),
                   });
                 });
+                _saveHealthData();
                 Navigator.of(ctx).pop();
               },
               child: const Text('Save Relationship', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
@@ -433,6 +467,7 @@ class _HealthHubScreenState extends State<HealthHubScreen> with SingleTickerProv
                     'notes': notesCtrl.text.trim(),
                   });
                 });
+                _saveHealthData();
                 Navigator.of(ctx).pop();
               },
               child: const Text('Log Workout', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
@@ -723,6 +758,11 @@ class _HealthHubScreenState extends State<HealthHubScreen> with SingleTickerProv
                                   ],
                                 ),
                               ),
+                              IconButton(
+                                icon: Icon(Icons.delete_outline, size: 18, color: Colors.grey.shade400),
+                                tooltip: 'Delete Rest Entry',
+                                onPressed: () => db.deleteSleepLog(log.id),
+                              ),
                             ],
                           ),
                         );
@@ -773,7 +813,10 @@ class _HealthHubScreenState extends State<HealthHubScreen> with SingleTickerProv
                             children: [
                               Expanded(
                                 child: OutlinedButton(
-                                  onPressed: () => setState(() => _todayWaterLiters += 0.25),
+                                  onPressed: () {
+                                    setState(() => _todayWaterLiters += 0.25);
+                                    _saveHealthData();
+                                  },
                                   child: const Text('+250ml Glass'),
                                 ),
                               ),
@@ -784,7 +827,10 @@ class _HealthHubScreenState extends State<HealthHubScreen> with SingleTickerProv
                                     backgroundColor: const Color(0xFF0284C7),
                                     foregroundColor: Colors.white,
                                   ),
-                                  onPressed: () => setState(() => _todayWaterLiters += 0.5),
+                                  onPressed: () {
+                                    setState(() => _todayWaterLiters += 0.5);
+                                    _saveHealthData();
+                                  },
                                   child: const Text('+500ml Bottle'),
                                 ),
                               ),
@@ -851,6 +897,16 @@ class _HealthHubScreenState extends State<HealthHubScreen> with SingleTickerProv
                                   ],
                                 ],
                               ),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.delete_outline, size: 18, color: Colors.grey.shade400),
+                              tooltip: 'Delete Workout',
+                              onPressed: () {
+                                setState(() {
+                                  _workouts.removeWhere((item) => item['id'] == w['id']);
+                                });
+                                _saveHealthData();
+                              },
                             ),
                           ],
                         ),
@@ -926,6 +982,19 @@ class _HealthHubScreenState extends State<HealthHubScreen> with SingleTickerProv
                                 ),
                               ),
                             ],
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton.icon(
+                                icon: const Icon(Icons.delete_outline, size: 14, color: Colors.grey),
+                                label: const Text('Remove Connection', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                                onPressed: () {
+                                  setState(() {
+                                    _relationships.removeWhere((item) => item['id'] == rel['id']);
+                                  });
+                                  _saveHealthData();
+                                },
+                              ),
+                            ),
                           ],
                         ),
                       );

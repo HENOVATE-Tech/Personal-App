@@ -607,6 +607,11 @@ class _LifestyleHubScreenState extends State<LifestyleHubScreen> with SingleTick
                                 ),
                               ),
                             ),
+                            IconButton(
+                              icon: Icon(Icons.delete_outline, size: 18, color: Colors.grey.shade400),
+                              tooltip: 'Delete Habit',
+                              onPressed: () => db.deleteCareItem(c.id),
+                            ),
                           ],
                         ),
                       );
@@ -707,6 +712,11 @@ class _LifestyleHubScreenState extends State<LifestyleHubScreen> with SingleTick
                                   color: chore.isCompleted ? const Color(0xFF059669) : AppTheme.coralPrimary,
                                 ),
                               ),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.delete_outline, size: 18, color: Colors.grey.shade400),
+                              tooltip: 'Delete Chore',
+                              onPressed: () => db.deleteChore(chore.id),
                             ),
                           ],
                         ),
@@ -821,6 +831,12 @@ class _LifestyleHubScreenState extends State<LifestyleHubScreen> with SingleTick
                 ],
               ),
             ),
+            if (existing != null)
+              IconButton(
+                icon: Icon(Icons.delete_outline, size: 18, color: Colors.grey.shade400),
+                tooltip: 'Clear Outfit',
+                onPressed: () => db.deleteOutfitPlan(existing.id),
+              ),
             GestureDetector(
               onTap: () => _showEditOutfitDialog(context, day, existing, db, now),
               child: Container(

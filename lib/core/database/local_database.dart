@@ -238,6 +238,63 @@ class LocalDatabase {
         'status': b.status,
       }).toList();
       await prefs.setString('plos_books', jsonEncode(bkList));
+
+      final catList = _financialCategories.map((c) => {
+        'id': c.id,
+        'name': c.name,
+        'type': c.type,
+        'iconName': c.iconName,
+        'colorValue': c.colorValue,
+        'isEssential': c.isEssential,
+      }).toList();
+      await prefs.setString('plos_categories', jsonEncode(catList));
+
+      final txList = _ledgerTransactions.map((tx) => {
+        'id': tx.id,
+        'type': tx.type.name,
+        'effectiveAt': tx.effectiveAt.toIso8601String(),
+        'memo': tx.memo,
+        'workspaceId': tx.workspaceId,
+        'originalTransactionId': tx.originalTransactionId,
+        'createdAt': tx.createdAt.toIso8601String(),
+      }).toList();
+      await prefs.setString('plos_transactions', jsonEncode(txList));
+
+      final mvList = _ledgerMovements.map((m) => {
+        'id': m.id,
+        'transactionId': m.transactionId,
+        'accountId': m.accountId,
+        'categoryId': m.categoryId,
+        'amountKobo': m.amountKobo,
+        'currency': m.currency,
+      }).toList();
+      await prefs.setString('plos_movements', jsonEncode(mvList));
+
+      final rList = _routineTemplates.map((r) => {
+        'id': r.id,
+        'title': r.title,
+        'category': r.category,
+        'preferredTimeLocal': r.preferredTimeLocal,
+        'targetDurationMins': r.targetDurationMins,
+        'minDurationMins': r.minDurationMins,
+        'isCompletedToday': r.isCompletedToday,
+      }).toList();
+      await prefs.setString('plos_routines', jsonEncode(rList));
+
+      final alertList = _smsDebitAlerts.map((a) => {
+        'id': a.id,
+        'sender': a.sender,
+        'rawBody': a.rawBody,
+        'amountKobo': a.amountKobo,
+        'accountLast4': a.accountLast4,
+        'memo': a.memo,
+        'isDebit': a.isDebit,
+        'receivedAt': a.receivedAt.toIso8601String(),
+        'suggestedCategoryId': a.suggestedCategoryId,
+        'isProcessed': a.isProcessed,
+        'isIgnored': a.isIgnored,
+      }).toList();
+      await prefs.setString('plos_alerts', jsonEncode(alertList));
     } catch (_) {}
   }
 
@@ -496,6 +553,102 @@ class LocalDatabase {
             totalPages: (item['totalPages'] as num?)?.toInt() ?? 200,
             currentPage: (item['currentPage'] as num?)?.toInt() ?? 0,
             status: item['status'] as String? ?? 'in_progress',
+          ));
+        }
+      }
+
+      final catStr = prefs.getString('plos_categories');
+      if (catStr != null && catStr.isNotEmpty) {
+        final List list = jsonDecode(catStr);
+        _financialCategories.clear();
+        for (final item in list) {
+          _financialCategories.add(FinancialCategory(
+            id: item['id'] as String,
+            name: item['name'] as String,
+            type: item['type'] as String? ?? 'expense',
+            iconName: item['iconName'] as String? ?? 'category',
+            colorValue: (item['colorValue'] as num?)?.toInt() ?? 0xFF3B82F6,
+            isEssential: item['isEssential'] as bool? ?? true,
+          ));
+        }
+      }
+
+      final txStr = prefs.getString('plos_transactions');
+      if (txStr != null && txStr.isNotEmpty) {
+        final List list = jsonDecode(txStr);
+        _ledgerTransactions.clear();
+        for (final item in list) {
+          _ledgerTransactions.add(LedgerTransaction(
+            id: item['id'] as String,
+            type: TransactionType.values.firstWhere(
+              (v) => v.name == item['type'],
+              orElse: () => TransactionType.expense,
+            ),
+            effectiveAt: item['effectiveAt'] != null
+                ? (DateTime.tryParse(item['effectiveAt'] as String) ?? DateTime.now())
+                : DateTime.now(),
+            memo: item['memo'] as String? ?? '',
+            workspaceId: item['workspaceId'] as String?,
+            originalTransactionId: item['originalTransactionId'] as String?,
+            createdAt: item['createdAt'] != null
+                ? (DateTime.tryParse(item['createdAt'] as String) ?? DateTime.now())
+                : DateTime.now(),
+          ));
+        }
+      }
+
+      final mvStr = prefs.getString('plos_movements');
+      if (mvStr != null && mvStr.isNotEmpty) {
+        final List list = jsonDecode(mvStr);
+        _ledgerMovements.clear();
+        for (final item in list) {
+          _ledgerMovements.add(LedgerMovement(
+            id: item['id'] as String,
+            transactionId: item['transactionId'] as String,
+            accountId: item['accountId'] as String?,
+            categoryId: item['categoryId'] as String?,
+            amountKobo: (item['amountKobo'] as num?)?.toInt() ?? 0,
+            currency: item['currency'] as String? ?? 'NGN',
+          ));
+        }
+      }
+
+      final rStr = prefs.getString('plos_routines');
+      if (rStr != null && rStr.isNotEmpty) {
+        final List list = jsonDecode(rStr);
+        _routineTemplates.clear();
+        for (final item in list) {
+          _routineTemplates.add(RoutineTemplate(
+            id: item['id'] as String,
+            title: item['title'] as String,
+            category: item['category'] as String? ?? 'morning',
+            preferredTimeLocal: item['preferredTimeLocal'] as String? ?? '06:00',
+            targetDurationMins: (item['targetDurationMins'] as num?)?.toInt() ?? 20,
+            minDurationMins: (item['minDurationMins'] as num?)?.toInt() ?? 10,
+            isCompletedToday: item['isCompletedToday'] as bool? ?? false,
+          ));
+        }
+      }
+
+      final alStr = prefs.getString('plos_alerts');
+      if (alStr != null && alStr.isNotEmpty) {
+        final List list = jsonDecode(alStr);
+        _smsDebitAlerts.clear();
+        for (final item in list) {
+          _smsDebitAlerts.add(SmsDebitAlert(
+            id: item['id'] as String,
+            sender: item['sender'] as String,
+            rawBody: item['rawBody'] as String? ?? '',
+            amountKobo: (item['amountKobo'] as num?)?.toInt() ?? 0,
+            accountLast4: item['accountLast4'] as String?,
+            memo: item['memo'] as String? ?? '',
+            isDebit: item['isDebit'] as bool? ?? true,
+            receivedAt: item['receivedAt'] != null
+                ? (DateTime.tryParse(item['receivedAt'] as String) ?? DateTime.now())
+                : DateTime.now(),
+            suggestedCategoryId: item['suggestedCategoryId'] as String?,
+            isProcessed: item['isProcessed'] as bool? ?? false,
+            isIgnored: item['isIgnored'] as bool? ?? false,
           ));
         }
       }
@@ -902,6 +1055,11 @@ class LocalDatabase {
     _notify();
   }
 
+  void deleteRoutineTemplate(String id) {
+    _routineTemplates.removeWhere((r) => r.id == id);
+    _notify();
+  }
+
   // --- Care Checklist ---
   List<CareChecklistItem> getCareChecklist() => List.unmodifiable(_careChecklistItems);
   void toggleCareItem(String id) {
@@ -921,6 +1079,11 @@ class LocalDatabase {
     } else {
       _careChecklistItems.add(item);
     }
+    _notify();
+  }
+
+  void deleteCareItem(String id) {
+    _careChecklistItems.removeWhere((c) => c.id == id);
     _notify();
   }
 
@@ -954,11 +1117,46 @@ class LocalDatabase {
     _notify();
   }
 
+  void deleteChore(String id) {
+    _chores.removeWhere((c) => c.id == id);
+    _notify();
+  }
+
   // --- Financial Ledger Engine (BR-06 & Double Entry) ---
   List<FinancialAccount> getFinancialAccounts() => List.unmodifiable(_financialAccounts);
   List<FinancialCategory> getFinancialCategories() => List.unmodifiable(_financialCategories);
   List<LedgerTransaction> getLedgerTransactions() => List.unmodifiable(_ledgerTransactions);
   List<LedgerMovement> getLedgerMovements() => List.unmodifiable(_ledgerMovements);
+
+  void upsertFinancialAccount(FinancialAccount account, {bool skipSync = false}) {
+    final idx = _financialAccounts.indexWhere((a) => a.id == account.id);
+    if (idx >= 0) {
+      _financialAccounts[idx] = account;
+    } else {
+      _financialAccounts.add(account);
+    }
+    _notify(skipSync: skipSync);
+  }
+
+  void deleteFinancialAccount(String accountId) {
+    _financialAccounts.removeWhere((a) => a.id == accountId);
+    _notify();
+  }
+
+  void upsertFinancialCategory(FinancialCategory category, {bool skipSync = false}) {
+    final idx = _financialCategories.indexWhere((c) => c.id == category.id);
+    if (idx >= 0) {
+      _financialCategories[idx] = category;
+    } else {
+      _financialCategories.add(category);
+    }
+    _notify(skipSync: skipSync);
+  }
+
+  void deleteFinancialCategory(String categoryId) {
+    _financialCategories.removeWhere((c) => c.id == categoryId);
+    _notify();
+  }
 
   /// Executes an atomic double-entry transaction.
   /// Enforces BR-06:
@@ -1321,6 +1519,10 @@ class LocalDatabase {
     _fastPlans.add(plan);
     _notify();
   }
+  void deleteFastPlan(String planId) {
+    _fastPlans.removeWhere((f) => f.id == planId);
+    _notify();
+  }
 
   // --- Outfit Plans ---
   List<OutfitPlan> getOutfitPlans() => List.unmodifiable(_outfitPlans);
@@ -1331,6 +1533,10 @@ class LocalDatabase {
     } else {
       _outfitPlans.add(plan);
     }
+    _notify();
+  }
+  void deleteOutfitPlan(String planId) {
+    _outfitPlans.removeWhere((o) => o.id == planId);
     _notify();
   }
 
@@ -1345,11 +1551,19 @@ class LocalDatabase {
     }
     _notify();
   }
+  void deleteBook(String bookId) {
+    _books.removeWhere((b) => b.id == bookId);
+    _notify();
+  }
 
   // --- Sleep Logs ---
   List<SleepLog> getSleepLogs() => List.unmodifiable(_sleepLogs);
   void addSleepLog(SleepLog log) {
     _sleepLogs.insert(0, log);
+    _notify();
+  }
+  void deleteSleepLog(String logId) {
+    _sleepLogs.removeWhere((s) => s.id == logId);
     _notify();
   }
 
@@ -1386,6 +1600,11 @@ class LocalDatabase {
     _notify();
   }
 
+  void deleteFollowUp(String id) {
+    _followUps.removeWhere((f) => f.id == id);
+    _notify();
+  }
+
   // --- Journal Entries ---
   List<JournalEntry> getJournalEntries({String? workspaceId}) {
     if (workspaceId == null || workspaceId.isEmpty) {
@@ -1399,19 +1618,28 @@ class LocalDatabase {
     _notify();
   }
 
-  // --- Prayer Sessions ---
-  List<PrayerSession> getPrayerSessions() => List.unmodifiable(_prayerSessions);
-  void addPrayerSession(PrayerSession session) {
-    _prayerSessions.insert(0, session);
+  void deleteJournalEntry(String id) {
+    _journalEntries.removeWhere((j) => j.id == id);
     _notify();
   }
 
-  void updatePrayerSession(PrayerSession session) {
+  // --- Prayer Sessions ---
+  List<PrayerSession> getPrayerSessions() => List.unmodifiable(_prayerSessions);
+  void addPrayerSession(PrayerSession session) {
     final idx = _prayerSessions.indexWhere((p) => p.id == session.id);
     if (idx >= 0) {
       _prayerSessions[idx] = session;
-      _notify();
+    } else {
+      _prayerSessions.insert(0, session);
     }
+    _notify();
+  }
+
+  void updatePrayerSession(PrayerSession session) => addPrayerSession(session);
+
+  void deletePrayerSession(String id) {
+    _prayerSessions.removeWhere((p) => p.id == id);
+    _notify();
   }
 
   // --- Omni Notes Workstation ---

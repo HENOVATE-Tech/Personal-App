@@ -188,6 +188,18 @@ class _WorkspacesOverviewScreenState extends State<WorkspacesOverviewScreen> wit
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                   ),
                 ),
+                if (existing != null && !existing.isDefault) ...[
+                  const SizedBox(height: 8),
+                  TextButton(
+                    style: TextButton.styleFrom(foregroundColor: const Color(0xFFEF4444)),
+                    onPressed: () {
+                      LocalDatabase.instance.deleteWorkspace(existing.id);
+                      Navigator.of(ctx).pop();
+                      setState(() {});
+                    },
+                    child: const Text('Delete Workspace'),
+                  ),
+                ],
               ],
             ),
           );
@@ -741,24 +753,34 @@ class _WorkspacesOverviewScreenState extends State<WorkspacesOverviewScreen> wit
                     ),
                   ],
                 ),
-                trailing: TextButton(
-                  style: TextButton.styleFrom(
-                    backgroundColor: isResolved ? const Color(0xFFF3F4F6) : const Color(0xFFD1FAE5),
-                    foregroundColor: isResolved ? Colors.grey : const Color(0xFF065F46),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  onPressed: () {
-                    db.upsertFollowUp(
-                      f.copyWith(
-                        status: isResolved ? 'pending' : 'closed',
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        backgroundColor: isResolved ? const Color(0xFFF3F4F6) : const Color(0xFFD1FAE5),
+                        foregroundColor: isResolved ? Colors.grey : const Color(0xFF065F46),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
-                    );
-                  },
-                  child: Text(
-                    isResolved ? 'Re-open' : 'Resolve',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                  ),
+                      onPressed: () {
+                        db.upsertFollowUp(
+                          f.copyWith(
+                            status: isResolved ? 'pending' : 'closed',
+                          ),
+                        );
+                      },
+                      child: Text(
+                        isResolved ? 'Re-open' : 'Resolve',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.delete_outline, size: 18, color: Colors.grey.shade400),
+                      tooltip: 'Delete Follow-up',
+                      onPressed: () => db.deleteFollowUp(f.id),
+                    ),
+                  ],
                 ),
               ),
             );
