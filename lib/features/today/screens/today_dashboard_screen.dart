@@ -17,6 +17,7 @@ import '../../analytics/screens/insights_screen.dart';
 import '../../governance/screens/device_governance_screen.dart';
 import '../../settings/screens/settings_screen.dart';
 import '../../notes/screens/notes_workstation_screen.dart';
+import '../../bible/screens/bible_reader_screen.dart';
 import '../../../core/services/api_service.dart';
 
 class TodayDashboardScreen extends StatefulWidget {
@@ -419,6 +420,15 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
                         },
                       ),
                       _buildServiceItem(
+                        icon: Icons.menu_book,
+                        label: 'Holy Bible',
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const BibleReaderScreen()),
+                          );
+                        },
+                      ),
+                      _buildServiceItem(
                         icon: Icons.menu_book_outlined,
                         label: 'Library',
                         onTap: () {
@@ -795,6 +805,20 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
                   subtitle: 'Segregated Spiritual (revelations, visions, dreams), Bible Study, Strategy, Professional & Relationships with 1-tap Task conversion',
                   connectedStatus: '${db.getNotes().length} notes active • ${db.getNotes().where((n) => n.isPinned).length} pinned • Synced',
                   destination: const NotesWorkstationScreen(),
+                ),
+
+                // Holy Bible & Split Study Workstation
+                _buildWorkstationCard(
+                  context,
+                  badge: 'HOLY SCRIPTURES & EXEGESIS',
+                  badgeColor: const Color(0xFFFAF5FF),
+                  badgeTextColor: const Color(0xFF6B21A8),
+                  icon: Icons.auto_stories,
+                  iconGradient: const LinearGradient(colors: [Color(0xFF6B21A8), Color(0xFF3B0764)]),
+                  title: 'Holy Bible & Split Study Workstation',
+                  subtitle: 'Complete 66-book catalog, offline KJV wisdom themes, split-screen live note study & 1-tap life commitments',
+                  connectedStatus: '66 Books Available • Split Study Mode Ready',
+                  destination: const BibleReaderScreen(),
                 ),
 
                 // 2. Phone Governance & Focus Shield

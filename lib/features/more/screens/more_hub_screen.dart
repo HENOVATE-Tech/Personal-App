@@ -9,6 +9,7 @@ import '../../settings/screens/settings_screen.dart';
 import '../../analytics/screens/insights_screen.dart';
 import '../../governance/screens/device_governance_screen.dart';
 import '../../notes/screens/notes_workstation_screen.dart';
+import '../../bible/screens/bible_reader_screen.dart';
 
 class MoreHubScreen extends StatelessWidget {
   const MoreHubScreen({super.key});
@@ -109,6 +110,15 @@ class MoreHubScreen extends StatelessWidget {
                   title: 'Notes & Revelations Hub',
                   subtitle: 'Prophetic revelations, visions, bible study, strategic blueprints & convert to tasks',
                   destination: const NotesWorkstationScreen(),
+                ),
+                _buildHubCard(
+                  context,
+                  icon: Icons.auto_stories,
+                  iconColor: const Color(0xFF4C1D95),
+                  badge: 'HOLY SCRIPTURES',
+                  title: 'Holy Bible & Split Study',
+                  subtitle: '66 books offline KJV, verse highlighting, split-screen note study & life tasks',
+                  destination: const BibleReaderScreen(),
                 ),
                 _buildHubCard(
                   context,

@@ -4,6 +4,8 @@ import '../../../core/config/theme.dart';
 import '../../../core/database/local_database.dart';
 import '../../../core/database/schema_models.dart';
 import '../../../core/services/api_service.dart';
+import '../../bible/screens/bible_reader_screen.dart';
+import '../../bible/screens/split_screen_bible_study_screen.dart';
 import '../models/note_ui_extensions.dart';
 import 'note_editor_screen.dart';
 
@@ -169,6 +171,24 @@ class _NotesWorkstationScreenState extends State<NotesWorkstationScreen> {
             ),
             actions: [
               IconButton(
+                tooltip: 'Holy Bible Reader',
+                icon: const Icon(Icons.auto_stories, color: Color(0xFF4C1D95)),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const BibleReaderScreen()),
+                  );
+                },
+              ),
+              IconButton(
+                tooltip: 'Split-Screen Bible Study',
+                icon: const Icon(Icons.vertical_split_rounded, color: Color(0xFF065F46)),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const SplitScreenBibleStudyScreen()),
+                  );
+                },
+              ),
+              IconButton(
                 tooltip: 'Quick Sync Remote',
                 icon: const Icon(Icons.sync, color: AppTheme.coralPrimary),
                 onPressed: () async {
@@ -323,6 +343,75 @@ class _NotesWorkstationScreenState extends State<NotesWorkstationScreen> {
                         ),
                       ),
                     ],
+                    // Holy Bible Quick Launcher Bar
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF2E1065), Color(0xFF4C1D95)],
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF4C1D95).withOpacity(0.25),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.auto_stories, color: Colors.amber, size: 22),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Holy Bible & Scripture Exegesis',
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                ),
+                                Text(
+                                  '66 books, offline KJV catalog, split study & tasks',
+                                  style: TextStyle(color: Colors.white70, fontSize: 11),
+                                ),
+                              ],
+                            ),
+                          ),
+                          TextButton(
+                            style: TextButton.styleFrom(
+                              backgroundColor: Colors.white.withOpacity(0.2),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(builder: (_) => const BibleReaderScreen()),
+                              );
+                            },
+                            child: const Text('Read Bible', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          ),
+                          const SizedBox(width: 6),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF10B981),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              elevation: 0,
+                            ),
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(builder: (_) => const SplitScreenBibleStudyScreen()),
+                              );
+                            },
+                            child: const Text('Split Study', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),

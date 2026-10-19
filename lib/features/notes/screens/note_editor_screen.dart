@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../../core/config/theme.dart';
 import '../../../core/database/local_database.dart';
 import '../../../core/database/schema_models.dart';
+import '../../bible/widgets/scripture_picker_dialog.dart';
+import '../../bible/screens/split_screen_bible_study_screen.dart';
 import '../models/note_ui_extensions.dart';
 
 class NoteEditorScreen extends StatefulWidget {
@@ -251,6 +253,34 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
     }
   }
 
+  void _openScripturePicker() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => ScripturePickerDialog(
+        onVerseSelected: (verse, asQuoteBlock) {
+          if (asQuoteBlock) {
+            final quote = '\n\n${verse.toFormattedQuote()}\n\n';
+            _contentController.text = _contentController.text + quote;
+          }
+          _scriptureController.text = verse.reference;
+          setState(() {});
+        },
+      ),
+    );
+  }
+
+  void _openSplitStudy() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SplitScreenBibleStudyScreen(
+          existingNote: widget.existingNote,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isSpiritualOrBible = _selectedCategory == NoteCategory.spiritual ||
@@ -270,6 +300,17 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
+          IconButton(
+            tooltip: 'Insert Holy Scripture',
+            icon: const Icon(Icons.auto_stories, color: Color(0xFF4C1D95)),
+            onPressed: _openScripturePicker,
+          ),
+          if (isSpiritualOrBible)
+            IconButton(
+              tooltip: 'Split-Screen Bible Study',
+              icon: const Icon(Icons.vertical_split_rounded, color: Color(0xFF065F46)),
+              onPressed: _openSplitStudy,
+            ),
           IconButton(
             tooltip: _isPinned ? 'Unpin Note' : 'Pin Note',
             icon: Icon(
@@ -449,8 +490,28 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                         labelText: 'Scripture Anchor (e.g. Habakkuk 2:2-3, Joel 2:28)',
                         labelStyle: const TextStyle(fontSize: 12),
                         prefixIcon: const Icon(Icons.menu_book_outlined, size: 18, color: Colors.teal),
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.search, size: 18, color: Color(0xFF4C1D95)),
+                          tooltip: 'Search & Pick Scripture',
+                          onPressed: _openScripturePicker,
+                        ),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                       ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.format_quote, size: 14, color: Color(0xFF4C1D95)),
+                          label: const Text('Insert Holy Scripture into Note', style: TextStyle(fontSize: 11, color: Color(0xFF4C1D95), fontWeight: FontWeight.bold)),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFFC084FC)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          ),
+                          onPressed: _openScripturePicker,
+                        ),
+                      ],
                     ),
                   ],
                 ],

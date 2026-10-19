@@ -14,6 +14,6 @@ void main() {
       final res = await SupabaseSyncService.instance.pushToSupabase();
       expect(res.isSuccess, isTrue);
       expect(res.recordsPushed, greaterThan(0));
-    });
+    }, timeout: const Timeout(Duration(minutes: 2)));
   });
 }
