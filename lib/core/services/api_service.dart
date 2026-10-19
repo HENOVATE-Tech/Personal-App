@@ -65,7 +65,7 @@ class ApiService {
   static const String defaultRenderUrl = 'https://personal-app-3hgq.onrender.com';
   static const String localUrl = 'http://localhost:5000';
 
-  String _baseUrl = defaultRenderUrl;
+  String _baseUrl = localUrl;
 
   String get baseUrl => _baseUrl;
 
@@ -75,6 +75,20 @@ class ApiService {
       trimmed = trimmed.substring(0, trimmed.length - 1);
     }
     _baseUrl = trimmed;
+  }
+
+  /// Automatically discovers the fastest working backend (local port 5000 or production Render)
+  Future<String> detectBestBaseUrl() async {
+    try {
+      final res = await http.get(Uri.parse('$localUrl/health')).timeout(const Duration(milliseconds: 1200));
+      if (res.statusCode == 200) {
+        _baseUrl = localUrl;
+        return _baseUrl;
+      }
+    } catch (_) {}
+
+    _baseUrl = defaultRenderUrl;
+    return _baseUrl;
   }
 
   /// Check /health endpoint
@@ -272,7 +286,25 @@ class ApiService {
         'updated_at': n.updatedAt.toIso8601String(),
       }).toList();
 
+      final workspaces = db.getWorkspaces().map((w) => {
+        'id': w.id,
+        'name': w.name,
+        'type': w.type,
+        'color_value': w.colorValue,
+      }).toList();
+
+      final incomeSources = db.getIncomeSources().map((inc) => {
+        'id': inc.id,
+        'name': inc.name,
+        'account_id': inc.accountId,
+        'expected_monthly_kobo': inc.expectedMonthlyKobo,
+        'received_kobo': inc.receivedKobo,
+        'workspace_id': inc.workspaceId,
+      }).toList();
+
       final pushPayload = {
+        'workspaces': workspaces,
+        'income_sources': incomeSources,
         'tasks': tasks,
         'financial_accounts': accounts,
         'financial_categories': categories,
@@ -285,14 +317,57 @@ class ApiService {
 
       // 2. Push to backend
       final pushRes = await pushData(pushPayload);
-      final int totalPushed = (pushRes['totalInsertedOrUpdated'] as int?) ?? 0;
+      final int totalPushed = (pushRes['totalInsertedOrUpdated'] as int?) ?? (pushRes['recordsPushed'] as int?) ?? 0;
 
       // 3. Pull remote updates
       final pullRes = await pullData();
       int totalPulled = 0;
 
-      if (pullRes['success'] == true && pullRes['tables'] != null) {
-        final tables = pullRes['tables'] as Map<String, dynamic>;
+      if (pullRes['success'] == true && (pullRes['tables'] != null || pullRes['data'] != null)) {
+        final tables = (pullRes['tables'] ?? pullRes['data']) as Map<String, dynamic>;
+
+        // Merge remote workspaces
+        if (tables['workspaces'] != null) {
+          final remoteWs = tables['workspaces'] as List;
+          for (final row in remoteWs) {
+            final wsId = row['id'] as String;
+            final existing = db.getWorkspaces().where((w) => w.id == wsId).firstOrNull;
+            if (existing == null) {
+              db.upsertWorkspace(
+                Workspace(
+                  id: wsId,
+                  name: row['name'] as String? ?? 'Workspace',
+                  type: row['type'] as String? ?? 'personal',
+                  colorValue: (row['color_value'] as num?)?.toInt() ?? 0xFF0D9488,
+                ),
+              );
+              totalPulled++;
+            }
+          }
+        }
+
+        // Merge remote income sources
+        final incList = tables['income_sources'] ?? tables['incomeSources'];
+        if (incList != null) {
+          final remoteIncomes = incList as List;
+          for (final row in remoteIncomes) {
+            final incId = row['id'] as String;
+            final existing = db.getIncomeSources().where((i) => i.id == incId).firstOrNull;
+            if (existing == null) {
+              db.upsertIncomeSource(
+                IncomeSource(
+                  id: incId,
+                  name: row['name'] as String? ?? 'Income Stream',
+                  accountId: row['account_id'] as String?,
+                  expectedMonthlyKobo: (row['expected_monthly_kobo'] as num?)?.toInt() ?? 0,
+                  receivedKobo: (row['received_kobo'] as num?)?.toInt() ?? 0,
+                  workspaceId: row['workspace_id'] as String?,
+                ),
+              );
+              totalPulled++;
+            }
+          }
+        }
 
         // Merge remote tasks into local if not present
         if (tables['tasks'] != null) {

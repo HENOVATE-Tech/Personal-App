@@ -4,6 +4,7 @@ import '../../../core/config/app_constants.dart';
 import '../../../core/config/theme.dart';
 import '../../../core/database/local_database.dart';
 import '../../../core/database/schema_models.dart';
+import '../../../core/services/notification_service.dart';
 
 class QuickCaptureSheet extends StatefulWidget {
   const QuickCaptureSheet({super.key});
@@ -19,6 +20,9 @@ class _QuickCaptureSheetState extends State<QuickCaptureSheet> {
   final TaskImportance _importance = TaskImportance.medium;
   final int _estimateMins = 30;
   bool _isTopPriority = false;
+  bool _setAlarm = false;
+  DateTime _alarmDate = DateTime.now();
+  TimeOfDay _alarmTime = TimeOfDay.fromDateTime(DateTime.now().add(const Duration(hours: 1)));
 
   final _uuid = const Uuid();
 
@@ -47,6 +51,25 @@ class _QuickCaptureSheetState extends State<QuickCaptureSheet> {
     );
 
     LocalDatabase.instance.upsertTask(task);
+
+    if (_setAlarm) {
+      final alarmDateTime = DateTime(
+        _alarmDate.year,
+        _alarmDate.month,
+        _alarmDate.day,
+        _alarmTime.hour,
+        _alarmTime.minute,
+      );
+      NotificationService.instance.scheduleAlarm(
+        title: title,
+        body: _nextActionController.text.trim().isNotEmpty
+            ? _nextActionController.text.trim()
+            : 'Focus commitment action',
+        scheduledTime: alarmDateTime,
+        category: 'task',
+      );
+    }
+
     Navigator.of(context).pop();
   }
 
@@ -168,6 +191,67 @@ class _QuickCaptureSheetState extends State<QuickCaptureSheet> {
             activeColor: AppTheme.coralPrimary,
             onChanged: (val) => setState(() => _isTopPriority = val),
           ),
+
+          // Ringing Alarm Toggle
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Set Ringing Alarm ⏰', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            subtitle: const Text('Plays hardware alarm audio when time is reached', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+            value: _setAlarm,
+            activeColor: const Color(0xFFEF4444),
+            onChanged: (val) => setState(() => _setAlarm = val),
+          ),
+
+          if (_setAlarm) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.calendar_today, size: 14),
+                    label: Text(
+                      '${_alarmDate.month}/${_alarmDate.day}/${_alarmDate.year}',
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: _alarmDate,
+                        firstDate: DateTime.now().subtract(const Duration(days: 1)),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                      );
+                      if (picked != null) setState(() => _alarmDate = picked);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.access_time, size: 14),
+                    label: Text(
+                      _alarmTime.format(context),
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () async {
+                      final picked = await showTimePicker(
+                        context: context,
+                        initialTime: _alarmTime,
+                      );
+                      if (picked != null) setState(() => _alarmTime = picked);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 16),
 
           ElevatedButton(

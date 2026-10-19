@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../config/theme.dart';
+import '../services/notification_service.dart';
 import '../../features/today/screens/today_dashboard_screen.dart';
 import '../../features/calendar/screens/calendar_screen.dart';
 import '../../features/tasks/screens/task_list_screen.dart';
@@ -60,6 +61,108 @@ class _AppShellState extends State<AppShell> {
         IndexedStack(
           index: _currentIndex,
           children: screens,
+        ),
+
+        // Floating Top Ringing Alarm Banner
+        StreamBuilder<ScheduledAlarm?>(
+          stream: NotificationService.instance.ringingAlarmStream,
+          initialData: NotificationService.instance.currentRingingAlarm,
+          builder: (context, snapshot) {
+            final alarm = snapshot.data;
+            if (alarm == null) return const SizedBox.shrink();
+
+            final topPadding = MediaQuery.of(context).padding.top;
+            return Positioned(
+              top: topPadding > 0 ? topPadding + 8 : 16,
+              left: 14,
+              right: 14,
+              child: Material(
+                elevation: 16,
+                borderRadius: BorderRadius.circular(24),
+                shadowColor: const Color(0xFFDC2626).withOpacity(0.5),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF991B1B), Color(0xFFDC2626)],
+                    ),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: Colors.white.withOpacity(0.4), width: 1.5),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.notifications_active, color: Colors.white, size: 20),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Row(
+                              children: [
+                                Text(
+                                  'ALARM RINGING ⏰',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Text(
+                              alarm.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          backgroundColor: Colors.white.withOpacity(0.2),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () => NotificationService.instance.snoozeActiveAlarm(minutes: 5),
+                        child: const Text('Snooze', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      ),
+                      const SizedBox(width: 6),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFFDC2626),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () => NotificationService.instance.dismissActiveAlarm(),
+                        child: const Text('Dismiss', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
         ),
 
         // Modern Floating Bottom Navigation Bar (matching reference UI)

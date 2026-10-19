@@ -129,4 +129,38 @@ router.post('/transactions', async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/finance/income-sources
+router.get('/income-sources', async (_req: Request, res: Response) => {
+  try {
+    const result = await pool.query('SELECT * FROM income_sources WHERE is_active = true ORDER BY name ASC;');
+    res.json({ success: true, incomeSources: result.rows });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/finance/income-sources (Upsert)
+router.post('/income-sources', async (req: Request, res: Response) => {
+  try {
+    const { id, name, accountId, expectedMonthlyKobo, receivedKobo, workspaceId, isActive } = req.body;
+    const result = await pool.query(
+      `INSERT INTO income_sources (id, name, account_id, expected_monthly_kobo, received_kobo, workspace_id, is_active, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+       ON CONFLICT (id) DO UPDATE SET
+         name = EXCLUDED.name,
+         account_id = EXCLUDED.account_id,
+         expected_monthly_kobo = EXCLUDED.expected_monthly_kobo,
+         received_kobo = EXCLUDED.received_kobo,
+         workspace_id = EXCLUDED.workspace_id,
+         is_active = EXCLUDED.is_active,
+         updated_at = NOW()
+       RETURNING *;`,
+      [id, name, accountId, expectedMonthlyKobo || 0, receivedKobo || 0, workspaceId, isActive ?? true]
+    );
+    res.status(201).json({ success: true, incomeSource: result.rows[0] });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 export default router;

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../core/config/theme.dart';
 import '../../../core/services/device_control_service.dart';
@@ -12,31 +13,257 @@ class DeviceGovernanceScreen extends StatefulWidget {
 class _DeviceGovernanceScreenState extends State<DeviceGovernanceScreen> {
   bool _isAdminActive = false;
   bool _isAccessibilityActive = false;
-  bool _isSocialShieldActive = false;
+  bool _isSocialShieldActive = true;
   bool _isAlarmPlaying = false;
   final _phoneController = TextEditingController(text: '+234');
+
+  // Governed Apps & Blocked Packages
+  final Map<String, String> _allGovernedApps = {
+    'Instagram': 'com.instagram.android',
+    'TikTok': 'com.zhiliaoapp.musically',
+    'Twitter / X': 'com.twitter.android',
+    'Facebook': 'com.facebook.katana',
+    'Snapchat': 'com.snapchat.android',
+    'Reddit': 'com.reddit.frontpage',
+    'YouTube': 'com.google.android.youtube',
+    'Netflix': 'com.netflix.mediaclient',
+    'Telegram': 'org.telegram.messenger',
+    'Chrome Browser': 'com.android.chrome',
+  };
+
+  final Set<String> _selectedBlockedPackages = {
+    'com.instagram.android',
+    'com.zhiliaoapp.musically',
+    'com.twitter.android',
+    'com.facebook.katana',
+    'com.snapchat.android',
+    'com.reddit.frontpage',
+  };
+
+  // Emergency Focus Override
+  int _remainingOverrideSeconds = 0;
+  String _activeOverrideReason = '';
+  Timer? _overrideTimer;
 
   @override
   void initState() {
     super.initState();
     _checkStatus();
+    _syncBlockedPackages();
   }
 
   Future<void> _checkStatus() async {
     final admin = await DeviceControlService.instance.isDeviceAdminActive();
     final access = await DeviceControlService.instance.isAccessibilityActive();
+    final remainingSecs = await DeviceControlService.instance.getEmergencyOverrideRemainingSeconds();
     if (mounted) {
       setState(() {
         _isAdminActive = admin;
         _isAccessibilityActive = access;
+        if (remainingSecs > 0) {
+          _remainingOverrideSeconds = remainingSecs;
+          _startCountdownTimer();
+        }
       });
     }
   }
 
+  Future<void> _syncBlockedPackages() async {
+    await DeviceControlService.instance.setBlockedPackages(_selectedBlockedPackages.toList());
+  }
+
+  void _startCountdownTimer() {
+    _overrideTimer?.cancel();
+    _overrideTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_remainingOverrideSeconds <= 1) {
+        timer.cancel();
+        setState(() {
+          _remainingOverrideSeconds = 0;
+          _activeOverrideReason = '';
+        });
+      } else {
+        setState(() {
+          _remainingOverrideSeconds--;
+        });
+      }
+    });
+  }
+
   @override
   void dispose() {
+    _overrideTimer?.cancel();
     _phoneController.dispose();
     super.dispose();
+  }
+
+  void _showEmergencyOverrideDialog() {
+    final reasonCtrl = TextEditingController();
+    int selectedDuration = 15;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              title: const Row(
+                children: [
+                  Icon(Icons.shield_outlined, color: Color(0xFFEA580C)),
+                  SizedBox(width: 8),
+                  Text('Emergency Override', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Request a temporary window to unlock governed apps. All focus breaks require an explicit, audited reason.',
+                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text('Select Override Duration:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [5, 15, 30].map((mins) {
+                        final isSel = selectedDuration == mins;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text('$mins Mins'),
+                            selected: isSel,
+                            selectedColor: const Color(0xFFFFECE5),
+                            labelStyle: TextStyle(
+                              color: isSel ? AppTheme.coralPrimary : AppTheme.darkCharcoal,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                            onSelected: (_) => setDialogState(() => selectedDuration = mins),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text('Explicit Reason for Breaking Focus:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: reasonCtrl,
+                      decoration: InputDecoration(
+                        hintText: 'e.g. Urgent client delivery call / Family emergency',
+                        filled: true,
+                        fillColor: const Color(0xFFF9FAFB),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final reason = reasonCtrl.text.trim();
+                    if (reason.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Please state an explicit reason for the focus override.')),
+                      );
+                      return;
+                    }
+                    Navigator.pop(ctx);
+                    await DeviceControlService.instance.requestEmergencyOverride(durationMinutes: selectedDuration);
+                    setState(() {
+                      _remainingOverrideSeconds = selectedDuration * 60;
+                      _activeOverrideReason = reason;
+                    });
+                    _startCountdownTimer();
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('✓ Focus shield temporarily lifted for $selectedDuration mins.'),
+                          backgroundColor: const Color(0xFF10B981),
+                        ),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFEA580C),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('Grant Temporary Access'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showAddCustomAppDialog() {
+    final nameCtrl = TextEditingController();
+    final packageCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: const Text('Add App to Shield', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: InputDecoration(
+                  labelText: 'App Name (e.g. Candy Crush)',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: packageCtrl,
+                decoration: InputDecoration(
+                  labelText: 'Package Name (e.g. com.king.candycrush)',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final name = nameCtrl.text.trim();
+                final pkg = packageCtrl.text.trim();
+                if (name.isNotEmpty && pkg.isNotEmpty) {
+                  setState(() {
+                    _allGovernedApps[name] = pkg;
+                    _selectedBlockedPackages.add(pkg);
+                  });
+                  _syncBlockedPackages();
+                  Navigator.pop(ctx);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.coralPrimary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Add to Shield'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -123,7 +350,98 @@ class _DeviceGovernanceScreenState extends State<DeviceGovernanceScreen> {
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                // 1. Social Media Override Shield
+                // 0. Active Emergency Override Banner (if active)
+                if (_remainingOverrideSeconds > 0)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFEA580C), Color(0xFFF97316)],
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFEA580C).withOpacity(0.35),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(Icons.timer_outlined, color: Colors.white, size: 20),
+                                SizedBox(width: 8),
+                                Text(
+                                  'FOCUS OVERRIDE ACTIVE',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 12,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.25),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '${(_remainingOverrideSeconds ~/ 60).toString().padLeft(2, '0')}:${(_remainingOverrideSeconds % 60).toString().padLeft(2, '0')}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (_activeOverrideReason.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            'Reason: $_activeOverrideReason',
+                            style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12),
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: const Color(0xFFEA580C),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            onPressed: () {
+                              _overrideTimer?.cancel();
+                              setState(() {
+                                _remainingOverrideSeconds = 0;
+                                _activeOverrideReason = '';
+                              });
+                              DeviceControlService.instance.requestEmergencyOverride(durationMinutes: 0);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Focus shield re-engaged.')),
+                              );
+                            },
+                            child: const Text('End Override & Lock Shield Early', style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // 1. Social Media & Focus Shield Master Switch
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: AppTheme.floatingCardDecoration,
@@ -147,7 +465,7 @@ class _DeviceGovernanceScreenState extends State<DeviceGovernanceScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
-                                  'Social Handles Shutdown',
+                                  'Focus Shield & App Lockdown',
                                   style: TextStyle(
                                     fontWeight: FontWeight.w800,
                                     fontSize: 16,
@@ -156,7 +474,7 @@ class _DeviceGovernanceScreenState extends State<DeviceGovernanceScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'Overrides & locks Instagram, TikTok, Twitter/X, Facebook',
+                                  'Enforces strict distraction blocking during focus & prayer blocks',
                                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                                 ),
                               ],
@@ -167,9 +485,9 @@ class _DeviceGovernanceScreenState extends State<DeviceGovernanceScreen> {
                       const SizedBox(height: 16),
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: const Text('Active Social Media Shield', style: TextStyle(fontWeight: FontWeight.w700)),
+                        title: const Text('Active Focus Shield', style: TextStyle(fontWeight: FontWeight.w700)),
                         subtitle: Text(
-                          _isSocialShieldActive ? 'Shutdown active: distracting apps blocked' : 'Shield inactive',
+                          _isSocialShieldActive ? 'Shield active: ${_selectedBlockedPackages.length} apps locked' : 'Shield inactive',
                           style: TextStyle(fontSize: 12, color: _isSocialShieldActive ? const Color(0xFFDC2626) : Colors.grey),
                         ),
                         value: _isSocialShieldActive,
@@ -189,14 +507,95 @@ class _DeviceGovernanceScreenState extends State<DeviceGovernanceScreen> {
                         },
                       ),
                       if (!_isAccessibilityActive)
-                        OutlinedButton.icon(
-                          icon: const Icon(Icons.settings_accessibility, size: 16),
-                          label: const Text('Enable Accessibility Service'),
-                          onPressed: () async {
-                            await DeviceControlService.instance.openAccessibilitySettings();
-                            await _checkStatus();
-                          },
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: OutlinedButton.icon(
+                            icon: const Icon(Icons.settings_accessibility, size: 16),
+                            label: const Text('Enable Accessibility Service in Android Settings'),
+                            onPressed: () async {
+                              await DeviceControlService.instance.openAccessibilitySettings();
+                              await _checkStatus();
+                            },
+                          ),
                         ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _showEmergencyOverrideDialog,
+                          icon: const Icon(Icons.lock_open, size: 16, color: Color(0xFFEA580C)),
+                          label: const Text('Request Emergency Focus Override', style: TextStyle(color: Color(0xFFEA580C), fontWeight: FontWeight.bold)),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFFEA580C)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // 1b. Select Governed Applications (Which Apps to Block)
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: AppTheme.floatingCardDecoration,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Select Blocked Apps',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 16,
+                                  color: AppTheme.darkCharcoal,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${_selectedBlockedPackages.length} of ${_allGovernedApps.length} apps currently governed',
+                                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                              ),
+                            ],
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.add_circle, color: AppTheme.coralPrimary),
+                            tooltip: 'Add Custom App Package',
+                            onPressed: _showAddCustomAppDialog,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const Divider(height: 1),
+                      const SizedBox(height: 8),
+                      ..._allGovernedApps.entries.map((entry) {
+                        final isBlocked = _selectedBlockedPackages.contains(entry.value);
+                        return CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(entry.key, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                          subtitle: Text(entry.value, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                          value: isBlocked,
+                          activeColor: const Color(0xFFDC2626),
+                          onChanged: (val) {
+                            setState(() {
+                              if (val == true) {
+                                _selectedBlockedPackages.add(entry.value);
+                              } else {
+                                _selectedBlockedPackages.remove(entry.value);
+                              }
+                            });
+                            _syncBlockedPackages();
+                          },
+                        );
+                      }),
                     ],
                   ),
                 ),

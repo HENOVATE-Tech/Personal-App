@@ -237,9 +237,11 @@ class _TransactionEditorScreenState extends State<TransactionEditorScreen> {
                 value: _categoryId,
                 decoration: const InputDecoration(labelText: 'Category'),
                 items: categories.map((cat) {
+                  final b = LocalDatabase.instance.getBudgetForCategory(cat.id);
+                  final budgetInfo = b != null ? ' (Budget: ${MoneyFormatter.formatKobo(b.allocatedKobo)})' : '';
                   return DropdownMenuItem(
                     value: cat.id,
-                    child: Text(cat.name),
+                    child: Text('${cat.name}$budgetInfo', overflow: TextOverflow.ellipsis),
                   );
                 }).toList(),
                 onChanged: (val) => setState(() => _categoryId = val),
@@ -247,7 +249,7 @@ class _TransactionEditorScreenState extends State<TransactionEditorScreen> {
               const SizedBox(height: 16),
             ],
 
-            // Governance Warning Banners (Non-Essential & Overspending)
+            // Governance Warning Banners & Live Budget Deduction Card
             if (_type == TransactionType.expense) ...[
               Builder(
                 builder: (context) {
@@ -270,12 +272,78 @@ class _TransactionEditorScreenState extends State<TransactionEditorScreen> {
                       budget.allocatedKobo > 0 &&
                       (budget.spentKobo + enteredKobo) > budget.allocatedKobo;
 
-                  if (!isNonEssential && !isOverspending) {
+                  if (budget == null && !isNonEssential) {
                     return const SizedBox.shrink();
                   }
 
                   return Column(
                     children: [
+                      if (budget != null)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 14),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: isOverspending ? const Color(0xFFFEE2E2) : const Color(0xFFF0FDF4),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isOverspending ? const Color(0xFFF87171) : const Color(0xFFBBF7D0),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'BUDGET: ${selectedCat?.name ?? ""}',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 11,
+                                      color: isOverspending ? const Color(0xFF991B1B) : const Color(0xFF166534),
+                                    ),
+                                  ),
+                                  Text(
+                                    'Cap: ${MoneyFormatter.formatKobo(budget.allocatedKobo)}',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              LinearProgressIndicator(
+                                value: budget.allocatedKobo > 0
+                                    ? ((budget.spentKobo + enteredKobo) / budget.allocatedKobo).clamp(0.0, 1.0)
+                                    : 0,
+                                backgroundColor: Colors.white,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  isOverspending ? Colors.red : AppTheme.coralPrimary,
+                                ),
+                                minHeight: 6,
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Spent: ${MoneyFormatter.formatKobo(budget.spentKobo)} + ${MoneyFormatter.formatKobo(enteredKobo)}',
+                                    style: const TextStyle(fontSize: 11),
+                                  ),
+                                  Text(
+                                    isOverspending
+                                        ? 'Over by ${MoneyFormatter.formatKobo((budget.spentKobo + enteredKobo) - budget.allocatedKobo)}'
+                                        : 'Remaining: ${MoneyFormatter.formatKobo(budget.allocatedKobo - (budget.spentKobo + enteredKobo))}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: isOverspending ? const Color(0xFFDC2626) : const Color(0xFF047857),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
                       if (isOverspending)
                         Container(
                           margin: const EdgeInsets.only(bottom: 12),

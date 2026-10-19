@@ -1418,13 +1418,27 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
                           },
                           style: TextButton.styleFrom(
                             foregroundColor: Colors.red.shade700,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             minimumSize: Size.zero,
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
-                          child: const Text('✕ Disapprove', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          child: const Text('✕ Disapprove', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
+                        OutlinedButton.icon(
+                          onPressed: () => _showMapAndApproveDialog(context, db, alert),
+                          icon: const Icon(Icons.tune, size: 13),
+                          label: const Text('Map & Review', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.coralPrimary,
+                            side: const BorderSide(color: AppTheme.coralPrimary),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
                         ElevatedButton(
                           onPressed: () {
                             db.approveSmsAlert(alert.id);
@@ -1439,12 +1453,12 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
                             backgroundColor: const Color(0xFF10B981),
                             foregroundColor: Colors.white,
                             elevation: 0,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                             minimumSize: Size.zero,
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
-                          child: const Text('✓ Approve & Post', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          child: const Text('✓ Quick Post', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ),
@@ -1455,6 +1469,265 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
           ],
         ],
       ),
+    );
+  }
+
+  void _showMapAndApproveDialog(BuildContext context, LocalDatabase db, SmsDebitAlert alert) {
+    final isCredit = !alert.isDebit;
+    final accounts = db.getFinancialAccounts();
+    final expenseCategories = db.getFinancialCategories().where((c) => c.type == 'expense').toList();
+    final incomeCategories = db.getFinancialCategories().where((c) => c.type == 'income').toList();
+    final categories = isCredit ? incomeCategories : expenseCategories;
+
+    String selectedAccountId = accounts.isNotEmpty ? accounts.first.id : '';
+    if (alert.accountLast4 != null) {
+      for (final a in accounts) {
+        if (a.name.contains(alert.accountLast4!)) {
+          selectedAccountId = a.id;
+          break;
+        }
+      }
+    }
+
+    String selectedCategoryId = alert.suggestedCategoryId ??
+        (categories.isNotEmpty ? categories.first.id : (expenseCategories.isNotEmpty ? expenseCategories.first.id : ''));
+    final memoCtrl = TextEditingController(text: alert.memo);
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final cat = categories.cast<FinancialCategory?>().firstWhere(
+                  (c) => c?.id == selectedCategoryId,
+                  orElse: () => null,
+                );
+            final budget = db.getBudgetForCategory(selectedCategoryId);
+            final willOverspend = budget != null &&
+                budget.allocatedKobo > 0 &&
+                (budget.spentKobo + alert.amountKobo) > budget.allocatedKobo;
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              title: Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: isCredit ? const Color(0xFFE8F5E9) : const Color(0xFFFEE2E2),
+                    radius: 18,
+                    child: Icon(
+                      isCredit ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
+                      color: isCredit ? const Color(0xFF166534) : const Color(0xFF991B1B),
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      isCredit ? 'Map Credit to Income Stream' : 'Map Debit to Budget Category',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF9FAFB),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(alert.sender, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondary)),
+                              Text(
+                                '${alert.receivedAt.day}/${alert.receivedAt.month} ${alert.receivedAt.hour.toString().padLeft(2, '0')}:${alert.receivedAt.minute.toString().padLeft(2, '0')}',
+                                style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            MoneyFormatter.formatKobo(alert.amountKobo),
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              color: isCredit ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    Text(
+                      isCredit ? 'Income Stream / Category' : 'Budget Expense Category',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.darkCharcoal),
+                    ),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      value: selectedCategoryId.isNotEmpty ? selectedCategoryId : null,
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      items: categories.map((c) {
+                        final b = db.getBudgetForCategory(c.id);
+                        final bTag = b != null ? ' (Budget: ${MoneyFormatter.formatKobo(b.allocatedKobo)})' : '';
+                        return DropdownMenuItem(
+                          value: c.id,
+                          child: Text('${c.name}$bTag', style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDialogState(() => selectedCategoryId = val);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+
+                    if (!isCredit && budget != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: willOverspend ? const Color(0xFFFEE2E2) : const Color(0xFFF0FDF4),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: willOverspend ? const Color(0xFFF87171) : const Color(0xFFBBF7D0)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  willOverspend ? '⚠️ BUDGET OVERRUN' : '✓ WITHIN BUDGET',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    color: willOverspend ? const Color(0xFF991B1B) : const Color(0xFF166534),
+                                  ),
+                                ),
+                                Text(
+                                  'Budget: ${MoneyFormatter.formatKobo(budget.allocatedKobo)}',
+                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Current Spent: ${MoneyFormatter.formatKobo(budget.spentKobo)} → After Debit: ${MoneyFormatter.formatKobo(budget.spentKobo + alert.amountKobo)}',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              willOverspend
+                                  ? 'Exceeds budget by ${MoneyFormatter.formatKobo((budget.spentKobo + alert.amountKobo) - budget.allocatedKobo)}'
+                                  : 'Remaining after deduction: ${MoneyFormatter.formatKobo(budget.allocatedKobo - (budget.spentKobo + alert.amountKobo))}',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: willOverspend ? const Color(0xFFDC2626) : const Color(0xFF047857),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    Text(
+                      isCredit ? 'Destination Bank Account' : 'Funding Bank Account',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.darkCharcoal),
+                    ),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      value: selectedAccountId.isNotEmpty ? selectedAccountId : null,
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      items: accounts.map((a) {
+                        return DropdownMenuItem(
+                          value: a.id,
+                          child: Text('${a.name} (${MoneyFormatter.formatKobo(a.balanceKobo)})', style: const TextStyle(fontSize: 13)),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDialogState(() => selectedAccountId = val);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+
+                    const Text('Transaction Memo / Vendor', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.darkCharcoal)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: memoCtrl,
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    db.dismissSmsAlert(alert.id);
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Alert disapproved and dismissed.')),
+                    );
+                  },
+                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                  child: const Text('Disapprove'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    db.processSmsDebitAlert(
+                      alert.id,
+                      accountId: selectedAccountId,
+                      categoryId: selectedCategoryId,
+                    );
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('✓ Approved ${MoneyFormatter.formatKobo(alert.amountKobo)} mapped to ${cat?.name ?? "ledger"}!'),
+                        backgroundColor: const Color(0xFF10B981),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF10B981),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('✓ Approve & Post'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 

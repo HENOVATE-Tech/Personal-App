@@ -96,6 +96,23 @@ class MainActivity: FlutterActivity() {
                     result.success(true)
                 }
 
+                "setBlockedPackages" -> {
+                    val packages = call.argument<List<String>>("packages") ?: listOf()
+                    SocialBlockerAccessibilityService.blockedPackages = packages.toMutableSet()
+                    result.success(true)
+                }
+
+                "requestEmergencyOverride" -> {
+                    val durationMins = call.argument<Int>("durationMinutes") ?: 15
+                    SocialBlockerAccessibilityService.emergencyOverrideUntilMs = System.currentTimeMillis() + (durationMins * 60 * 1000L)
+                    result.success(true)
+                }
+
+                "getEmergencyOverrideRemainingSeconds" -> {
+                    val remaining = (SocialBlockerAccessibilityService.emergencyOverrideUntilMs - System.currentTimeMillis()) / 1000L
+                    result.success(if (remaining > 0) remaining else 0L)
+                }
+
                 "isAccessibilityActive" -> {
                     val enabledServices = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
                     val isEnabled = enabledServices != null && enabledServices.contains(packageName)
@@ -112,7 +129,7 @@ class MainActivity: FlutterActivity() {
             }
         }
 
-        // --- SMS Bank Debit Ingestion Channel ---
+        // --- SMS Bank Ingestion Channel (Credit & Debit) ---
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.henovate.personallifeos/sms").setMethodCallHandler { call, result ->
             when (call.method) {
                 "requestSmsPermissions" -> {
@@ -165,7 +182,14 @@ class MainActivity: FlutterActivity() {
                                             contentLower.contains("spent") ||
                                             contentLower.contains("paid")
 
-                                    if (isDebitAlert) {
+                                    val isCreditAlert = contentLower.contains("credit") ||
+                                            contentLower.contains(" cr ") ||
+                                            contentLower.contains("cr:") ||
+                                            contentLower.contains("received from") ||
+                                            contentLower.contains("credited with") ||
+                                            contentLower.contains("inward transfer")
+
+                                    if (isDebitAlert || isCreditAlert) {
                                         val senderStr: String = if (addressIdx >= 0) c.getString(addressIdx) ?: "Bank" else "Bank"
                                         val timestampLong: Long = if (dateIdx >= 0) c.getLong(dateIdx) else System.currentTimeMillis()
 

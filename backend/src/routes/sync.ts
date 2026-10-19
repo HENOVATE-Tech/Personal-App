@@ -28,20 +28,20 @@ router.get('/status', async (_req: Request, res: Response) => {
 router.post('/push', async (req: Request, res: Response) => {
   const client = await pool.connect();
   try {
-    const {
-      workspaces = [],
-      accounts = [],
-      categories = [],
-      budgets = [],
-      tasks = [],
-      routines = [],
-      careChecklist = [],
-      chores = [],
-      transactions = [],
-      movements = [],
-      smsAlerts = [],
-      notes = [],
-    } = req.body;
+    const b = req.body || {};
+    const workspaces = b.workspaces || [];
+    const accounts = b.accounts || b.financial_accounts || [];
+    const categories = b.categories || b.financial_categories || [];
+    const budgets = b.budgets || [];
+    const incomeSources = b.incomeSources || b.income_sources || [];
+    const tasks = b.tasks || [];
+    const routines = b.routines || [];
+    const careChecklist = b.careChecklist || [];
+    const chores = b.chores || [];
+    const transactions = b.transactions || b.ledger_transactions || [];
+    const movements = b.movements || b.ledger_movements || [];
+    const smsAlerts = b.smsAlerts || b.sms_debit_alerts || [];
+    const notes = b.notes || [];
 
     let pushedCount = 0;
     await client.query('BEGIN');
@@ -53,6 +53,24 @@ router.post('/push', async (req: Request, res: Response) => {
          VALUES ($1, $2, $3, $4)
          ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, color_value = EXCLUDED.color_value;`,
         [ws.id, ws.name, ws.type, ws.colorValue]
+      );
+      pushedCount++;
+    }
+
+    // 1b. Income Sources
+    for (const inc of incomeSources) {
+      await client.query(
+        `INSERT INTO income_sources (id, name, account_id, expected_monthly_kobo, received_kobo, workspace_id, is_active, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+         ON CONFLICT (id) DO UPDATE SET
+           name = EXCLUDED.name,
+           account_id = EXCLUDED.account_id,
+           expected_monthly_kobo = EXCLUDED.expected_monthly_kobo,
+           received_kobo = EXCLUDED.received_kobo,
+           workspace_id = EXCLUDED.workspace_id,
+           is_active = EXCLUDED.is_active,
+           updated_at = NOW();`,
+        [inc.id, inc.name, inc.accountId || inc.account_id || null, inc.expectedMonthlyKobo || inc.expected_monthly_kobo || 0, inc.receivedKobo || inc.received_kobo || 0, inc.workspaceId || inc.workspace_id || null, inc.isActive ?? true]
       );
       pushedCount++;
     }
@@ -213,23 +231,34 @@ router.get('/pull', async (_req: Request, res: Response) => {
     const movements = (await pool.query('SELECT * FROM ledger_movements;')).rows;
     const smsAlerts = (await pool.query('SELECT * FROM sms_debit_alerts WHERE is_processed = false AND is_ignored = false;')).rows;
     const notes = (await pool.query('SELECT * FROM notes ORDER BY is_pinned DESC, updated_at DESC;')).rows;
+    const incomeSources = (await pool.query('SELECT * FROM income_sources WHERE is_active = true ORDER BY name ASC;')).rows;
+
+    const payload = {
+      workspaces,
+      accounts,
+      financial_accounts: accounts,
+      categories,
+      financial_categories: categories,
+      budgets,
+      incomeSources,
+      income_sources: incomeSources,
+      tasks,
+      routines,
+      careChecklist,
+      chores,
+      transactions,
+      ledger_transactions: transactions,
+      movements,
+      ledger_movements: movements,
+      smsAlerts,
+      sms_debit_alerts: smsAlerts,
+      notes,
+    };
 
     res.json({
       success: true,
-      data: {
-        workspaces,
-        accounts,
-        categories,
-        budgets,
-        tasks,
-        routines,
-        careChecklist,
-        chores,
-        transactions,
-        movements,
-        smsAlerts,
-        notes,
-      },
+      data: payload,
+      tables: payload,
       timestamp: new Date(),
     });
   } catch (err: any) {

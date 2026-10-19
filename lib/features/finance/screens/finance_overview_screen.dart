@@ -8,13 +8,21 @@ import '../../../core/utils/money_formatter.dart';
 import '../../../core/widgets/privacy_blur_wrapper.dart';
 import 'budget_management_screen.dart';
 
-class FinanceOverviewScreen extends StatelessWidget {
+class FinanceOverviewScreen extends StatefulWidget {
   final VoidCallback onAddTransaction;
 
   const FinanceOverviewScreen({
     super.key,
     required this.onAddTransaction,
   });
+
+  @override
+  State<FinanceOverviewScreen> createState() => _FinanceOverviewScreenState();
+}
+
+class _FinanceOverviewScreenState extends State<FinanceOverviewScreen> {
+  bool _isCalendarMode = false;
+  DateTime _selectedCalendarDay = DateTime.now();
 
   void _showSmsDebitApprovalDialog(BuildContext context, SmsDebitAlert alert) {
     final db = LocalDatabase.instance;
@@ -251,7 +259,7 @@ class FinanceOverviewScreen extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.add_circle, color: AppTheme.coralPrimary, size: 28),
                 tooltip: 'Add Transaction',
-                onPressed: onAddTransaction,
+                onPressed: widget.onAddTransaction,
               ),
             ],
           ),
@@ -318,7 +326,7 @@ class FinanceOverviewScreen extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           ),
-                          onPressed: onAddTransaction,
+                          onPressed: widget.onAddTransaction,
                         ),
                         const SizedBox(width: 8),
                         ElevatedButton.icon(
@@ -342,7 +350,41 @@ class FinanceOverviewScreen extends StatelessWidget {
                 ),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
+
+              // View Mode Toggle (Ledger View vs Cash Flow Calendar)
+              Row(
+                children: [
+                  Expanded(
+                    child: SegmentedButton<bool>(
+                      segments: const [
+                        ButtonSegment<bool>(
+                          value: false,
+                          label: Text('Ledger & Accounts', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          icon: Icon(Icons.account_balance_wallet, size: 16),
+                        ),
+                        ButtonSegment<bool>(
+                          value: true,
+                          label: Text('Cash Flow Calendar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          icon: Icon(Icons.calendar_month, size: 16),
+                        ),
+                      ],
+                      selected: {_isCalendarMode},
+                      onSelectionChanged: (set) => setState(() => _isCalendarMode = set.first),
+                      style: const ButtonStyle(
+                        visualDensity: VisualDensity.compact,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 14),
+
+              if (_isCalendarMode) ...[
+                _buildCashFlowCalendarSection(context, db, transactions),
+              ] else ...[
 
               // Active Overspending Alerts Banner
               if (overspendingBudgets.isNotEmpty) ...[
@@ -704,10 +746,324 @@ class FinanceOverviewScreen extends StatelessWidget {
                     ),
                   );
                 }),
+              ],
             ],
           ),
         );
       },
     );
+  }
+
+  Widget _buildCashFlowCalendarSection(
+    BuildContext context,
+    LocalDatabase db,
+    List<LedgerTransaction> allTransactions,
+  ) {
+    final dayTx = allTransactions.where((tx) =>
+      tx.effectiveAt.year == _selectedCalendarDay.year &&
+      tx.effectiveAt.month == _selectedCalendarDay.month &&
+      tx.effectiveAt.day == _selectedCalendarDay.day
+    ).toList();
+
+    int dayIncomeKobo = 0;
+    int dayExpenseKobo = 0;
+
+    for (final tx in dayTx) {
+      final movements = db.getLedgerMovements().where((m) => m.transactionId == tx.id);
+      for (final m in movements) {
+        if (tx.type == TransactionType.income && m.accountId != null && m.amountKobo > 0) {
+          dayIncomeKobo += m.amountKobo;
+        } else if (tx.type == TransactionType.expense && m.categoryId != null && m.amountKobo > 0) {
+          dayExpenseKobo += m.amountKobo;
+        }
+      }
+    }
+
+    final netKobo = dayIncomeKobo - dayExpenseKobo;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Month Selector Card
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: AppTheme.softCardShadow,
+          ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.chevron_left, size: 20),
+                    onPressed: () {
+                      setState(() {
+                        _selectedCalendarDay = DateTime(_selectedCalendarDay.year, _selectedCalendarDay.month - 1, 1);
+                      });
+                    },
+                  ),
+                  Text(
+                    '${_getMonthName(_selectedCalendarDay.month)} ${_selectedCalendarDay.year}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.chevron_right, size: 20),
+                    onPressed: () {
+                      setState(() {
+                        _selectedCalendarDay = DateTime(_selectedCalendarDay.year, _selectedCalendarDay.month + 1, 1);
+                      });
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 72,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: DateTime(_selectedCalendarDay.year, _selectedCalendarDay.month + 1, 0).day,
+                  itemBuilder: (context, index) {
+                    final day = index + 1;
+                    final date = DateTime(_selectedCalendarDay.year, _selectedCalendarDay.month, day);
+                    final isSel = date.day == _selectedCalendarDay.day &&
+                        date.month == _selectedCalendarDay.month &&
+                        date.year == _selectedCalendarDay.year;
+
+                    int dIn = 0;
+                    int dOut = 0;
+                    for (final tx in allTransactions) {
+                      if (tx.effectiveAt.year == date.year && tx.effectiveAt.month == date.month && tx.effectiveAt.day == date.day) {
+                        final movements = db.getLedgerMovements().where((m) => m.transactionId == tx.id);
+                        for (final m in movements) {
+                          if (tx.type == TransactionType.income && m.accountId != null && m.amountKobo > 0) dIn += m.amountKobo;
+                          if (tx.type == TransactionType.expense && m.categoryId != null && m.amountKobo > 0) dOut += m.amountKobo;
+                        }
+                      }
+                    }
+
+                    return GestureDetector(
+                      onTap: () => setState(() => _selectedCalendarDay = date),
+                      child: Container(
+                        width: 48,
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        decoration: BoxDecoration(
+                          color: isSel ? AppTheme.coralPrimary : const Color(0xFFF9FAFB),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: isSel ? AppTheme.coralPrimary : const Color(0xFFE5E7EB)),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              _getWeekdayLetter(date.weekday),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: isSel ? Colors.white70 : Colors.grey.shade500,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '$day',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                color: isSel ? Colors.white : AppTheme.darkCharcoal,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            if (dIn > 0 || dOut > 0)
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  color: isSel ? Colors.white : (dIn >= dOut ? const Color(0xFF10B981) : const Color(0xFFEF4444)),
+                                  shape: BoxShape.circle,
+                                ),
+                              )
+                            else
+                              const SizedBox(height: 6),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 14),
+
+        // Daily Summary Card
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: AppTheme.softCardShadow,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${_selectedCalendarDay.day} ${_getMonthName(_selectedCalendarDay.month)} ${_selectedCalendarDay.year}',
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppTheme.darkCharcoal),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: netKobo >= 0 ? const Color(0xFFE8F5E9) : const Color(0xFFFEE2E2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      netKobo >= 0 ? '+${MoneyFormatter.formatKobo(netKobo)}' : '-${MoneyFormatter.formatKobo(netKobo.abs())}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        color: netKobo >= 0 ? const Color(0xFF166534) : const Color(0xFF991B1B),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Total Inflows', style: TextStyle(fontSize: 11, color: Color(0xFF166534), fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 4),
+                          Text(MoneyFormatter.formatKobo(dayIncomeKobo), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF166534))),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Total Outflows', style: TextStyle(fontSize: 11, color: Color(0xFF991B1B), fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 4),
+                          Text(MoneyFormatter.formatKobo(dayExpenseKobo), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF991B1B))),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 14),
+
+        // Day's Transactions List
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          child: Text(
+            'Transactions on ${_selectedCalendarDay.day} ${_getMonthName(_selectedCalendarDay.month)} (${dayTx.length})',
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.darkCharcoal),
+          ),
+        ),
+        const SizedBox(height: 6),
+        if (dayTx.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: AppTheme.softCardShadow,
+            ),
+            child: const Center(
+              child: Text(
+                'No transactions recorded on this date.',
+                style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+              ),
+            ),
+          )
+        else
+          ...dayTx.map((tx) {
+            final isExpense = tx.type == TransactionType.expense;
+            final isIncome = tx.type == TransactionType.income;
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: AppTheme.softCardShadow,
+              ),
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: isExpense
+                      ? const Color(0xFFFFECE5)
+                      : isIncome
+                          ? const Color(0xFFE8F5E9)
+                          : const Color(0xFFEDE7F6),
+                  child: Icon(
+                    isExpense ? Icons.arrow_upward : isIncome ? Icons.arrow_downward : Icons.sync_alt,
+                    color: isExpense ? AppTheme.coralPrimary : isIncome ? const Color(0xFF2E7D32) : const Color(0xFF5E35B1),
+                    size: 18,
+                  ),
+                ),
+                title: Text(tx.memo, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                subtitle: Text(
+                  '${tx.type.name.toUpperCase()} • ${tx.effectiveAt.hour.toString().padLeft(2, '0')}:${tx.effectiveAt.minute.toString().padLeft(2, '0')}',
+                  style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                ),
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF3F4F6),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    tx.type == TransactionType.transfer ? 'NEUTRAL' : 'POSTED',
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            );
+          }),
+      ],
+    );
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    if (month >= 1 && month <= 12) return months[month - 1];
+    return '';
+  }
+
+  String _getWeekdayLetter(int weekday) {
+    const letters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    if (weekday >= 1 && weekday <= 7) return letters[weekday - 1];
+    return '';
   }
 }

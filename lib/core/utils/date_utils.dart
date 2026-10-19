@@ -40,6 +40,11 @@ class AppDateUtils {
     return DateFormat('d MMM').format(dateTime);
   }
 
+  /// Formats date and time cleanly (e.g. "19 Oct, 2:30 PM").
+  static String formatDateTime(DateTime dateTime, {bool is24Hour = false}) {
+    return '${formatShortDate(dateTime)}, ${formatTime(dateTime, is24Hour: is24Hour)}';
+  }
+
   /// Returns true if two DateTimes represent the same calendar day.
   static bool isSameDay(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;

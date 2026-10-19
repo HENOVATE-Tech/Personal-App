@@ -10,6 +10,7 @@ import '../../analytics/screens/insights_screen.dart';
 import '../../governance/screens/device_governance_screen.dart';
 import '../../notes/screens/notes_workstation_screen.dart';
 import '../../bible/screens/bible_reader_screen.dart';
+import '../../reminders/screens/reminders_screen.dart';
 
 class MoreHubScreen extends StatelessWidget {
   const MoreHubScreen({super.key});
@@ -173,6 +174,15 @@ class MoreHubScreen extends StatelessWidget {
                   title: 'Reviews & Insights Analytics',
                   subtitle: 'Sunday weekly review, month-end closing, authentic trends',
                   destination: const InsightsScreen(),
+                ),
+                _buildHubCard(
+                  context,
+                  icon: Icons.alarm,
+                  iconColor: const Color(0xFFEF4444),
+                  badge: 'AUDIBLE ALARMS',
+                  title: 'Reminders & Ringing Alarms',
+                  subtitle: 'Loud hardware ringtone alarms for tasks, prayer, study slots, and routines',
+                  destination: const RemindersScreen(),
                 ),
                 _buildHubCard(
                   context,

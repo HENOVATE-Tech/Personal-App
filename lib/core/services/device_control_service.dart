@@ -76,6 +76,36 @@ class DeviceControlService {
     }
   }
 
+  /// Sets the active list of blocked application package names
+  Future<bool> setBlockedPackages(List<String> packages) async {
+    try {
+      final res = await _channel.invokeMethod<bool>('setBlockedPackages', {'packages': packages});
+      return res ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Activates an emergency focus override for a specified duration in minutes
+  Future<bool> requestEmergencyOverride({int durationMinutes = 15}) async {
+    try {
+      final res = await _channel.invokeMethod<bool>('requestEmergencyOverride', {'durationMinutes': durationMinutes});
+      return res ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Gets remaining emergency override seconds (0 if inactive)
+  Future<int> getEmergencyOverrideRemainingSeconds() async {
+    try {
+      final res = await _channel.invokeMethod<int>('getEmergencyOverrideRemainingSeconds');
+      return res ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   /// Checks if Accessibility Service is enabled for social media blocking
   Future<bool> isAccessibilityActive() async {
     try {
