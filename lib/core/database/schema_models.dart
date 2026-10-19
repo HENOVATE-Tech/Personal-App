@@ -391,6 +391,7 @@ class FinancialCategory {
   final String type; // "expense" or "income"
   final String iconName;
   final int colorValue;
+  final bool isEssential; // True for essential needs, False for discretionary/unnecessary
 
   const FinancialCategory({
     required this.id,
@@ -398,7 +399,25 @@ class FinancialCategory {
     required this.type,
     required this.iconName,
     required this.colorValue,
+    this.isEssential = true,
   });
+
+  FinancialCategory copyWith({
+    String? name,
+    String? type,
+    String? iconName,
+    int? colorValue,
+    bool? isEssential,
+  }) {
+    return FinancialCategory(
+      id: id,
+      name: name ?? this.name,
+      type: type ?? this.type,
+      iconName: iconName ?? this.iconName,
+      colorValue: colorValue ?? this.colorValue,
+      isEssential: isEssential ?? this.isEssential,
+    );
+  }
 }
 
 enum TransactionType { expense, income, transfer, refund }
@@ -458,14 +477,67 @@ class Budget {
     this.rolloverEligible = false,
   });
 
-  Budget copyWith({int? allocatedKobo, int? spentKobo}) {
+  double get percentUsed => allocatedKobo > 0 ? (spentKobo / allocatedKobo) * 100 : 0.0;
+  bool get isOverspent => spentKobo > allocatedKobo;
+  bool get isNearLimit => allocatedKobo > 0 && percentUsed >= 80.0 && !isOverspent;
+  int get remainingKobo => allocatedKobo - spentKobo;
+
+  Budget copyWith({int? allocatedKobo, int? spentKobo, bool? rolloverEligible}) {
     return Budget(
       id: id,
       categoryId: categoryId,
       periodMonthYear: periodMonthYear,
       allocatedKobo: allocatedKobo ?? this.allocatedKobo,
       spentKobo: spentKobo ?? this.spentKobo,
-      rolloverEligible: rolloverEligible,
+      rolloverEligible: rolloverEligible ?? this.rolloverEligible,
+    );
+  }
+}
+
+class SmsDebitAlert {
+  final String id;
+  final String sender;
+  final String rawBody;
+  final int amountKobo;
+  final String? accountLast4;
+  final String memo;
+  final bool isDebit;
+  final DateTime receivedAt;
+  final String? suggestedCategoryId;
+  final bool isProcessed;
+  final bool isIgnored;
+
+  const SmsDebitAlert({
+    required this.id,
+    required this.sender,
+    required this.rawBody,
+    required this.amountKobo,
+    this.accountLast4,
+    required this.memo,
+    this.isDebit = true,
+    required this.receivedAt,
+    this.suggestedCategoryId,
+    this.isProcessed = false,
+    this.isIgnored = false,
+  });
+
+  SmsDebitAlert copyWith({
+    bool? isProcessed,
+    bool? isIgnored,
+    String? suggestedCategoryId,
+  }) {
+    return SmsDebitAlert(
+      id: id,
+      sender: sender,
+      rawBody: rawBody,
+      amountKobo: amountKobo,
+      accountLast4: accountLast4,
+      memo: memo,
+      isDebit: isDebit,
+      receivedAt: receivedAt,
+      suggestedCategoryId: suggestedCategoryId ?? this.suggestedCategoryId,
+      isProcessed: isProcessed ?? this.isProcessed,
+      isIgnored: isIgnored ?? this.isIgnored,
     );
   }
 }

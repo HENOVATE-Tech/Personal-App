@@ -177,7 +177,7 @@ class _DeviceGovernanceScreenState extends State<DeviceGovernanceScreen> {
                         onChanged: (val) async {
                           if (!_isAccessibilityActive && val) {
                             await DeviceControlService.instance.openAccessibilitySettings();
-                            if (mounted) {
+                            if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(content: Text('Please enable "Personal Life OS" in Accessibility Settings to enforce app shutdown.')),
                               );

@@ -39,6 +39,7 @@ class LocalDatabase {
   final List<RecoveryAction> _recoveryActions = [];
   final List<InAppNotification> _notifications = [];
   final List<ReviewEntry> _reviews = [];
+  final List<SmsDebitAlert> _smsDebitAlerts = [];
 
   // Stream controllers for reactivity
   final _changeStreamController = StreamController<void>.broadcast();
@@ -98,14 +99,28 @@ class LocalDatabase {
       ),
     ]);
 
-    // 3. Financial Categories
+    // 3. Financial Categories (Essential vs Discretionary)
     _financialCategories.addAll([
-      const FinancialCategory(id: 'cat-food', name: 'Food & Groceries', type: 'expense', iconName: 'restaurant', colorValue: 0xFFF59E0B),
-      const FinancialCategory(id: 'cat-transport', name: 'Transport & Fuel', type: 'expense', iconName: 'directions_car', colorValue: 0xFF3B82F6),
-      const FinancialCategory(id: 'cat-utilities', name: 'Utilities & Internet', type: 'expense', iconName: 'bolt', colorValue: 0xFF10B981),
-      const FinancialCategory(id: 'cat-giving', name: 'Giving & Tithes', type: 'expense', iconName: 'volunteer_activism', colorValue: 0xFFEC4899),
-      const FinancialCategory(id: 'cat-salary', name: 'Salary & Earnings', type: 'income', iconName: 'payments', colorValue: 0xFF059669),
-      const FinancialCategory(id: 'cat-consulting', name: 'Henovate Consulting', type: 'income', iconName: 'business_center', colorValue: 0xFF7C3AED),
+      const FinancialCategory(id: 'cat-food', name: 'Food & Groceries', type: 'expense', iconName: 'restaurant', colorValue: 0xFFF59E0B, isEssential: true),
+      const FinancialCategory(id: 'cat-transport', name: 'Transport & Fuel', type: 'expense', iconName: 'directions_car', colorValue: 0xFF3B82F6, isEssential: true),
+      const FinancialCategory(id: 'cat-utilities', name: 'Utilities & Internet', type: 'expense', iconName: 'bolt', colorValue: 0xFF10B981, isEssential: true),
+      const FinancialCategory(id: 'cat-giving', name: 'Giving & Tithes', type: 'expense', iconName: 'volunteer_activism', colorValue: 0xFFEC4899, isEssential: true),
+      const FinancialCategory(id: 'cat-entertainment', name: 'Entertainment & Outings', type: 'expense', iconName: 'movie', colorValue: 0xFF8B5CF6, isEssential: false),
+      const FinancialCategory(id: 'cat-shopping', name: 'Shopping & Impulse', type: 'expense', iconName: 'shopping_bag', colorValue: 0xFFEF4444, isEssential: false),
+      const FinancialCategory(id: 'cat-salary', name: 'Salary & Earnings', type: 'income', iconName: 'payments', colorValue: 0xFF059669, isEssential: true),
+      const FinancialCategory(id: 'cat-consulting', name: 'Henovate Consulting', type: 'income', iconName: 'business_center', colorValue: 0xFF7C3AED, isEssential: true),
+    ]);
+
+    // 3b. Default Monthly Budgets
+    final seedDate = DateTime.now();
+    final currentMonthYear = '${seedDate.year}-${seedDate.month.toString().padLeft(2, '0')}';
+    _budgets.addAll([
+      Budget(id: 'b-food', categoryId: 'cat-food', periodMonthYear: currentMonthYear, allocatedKobo: 6000000), // ₦60,000
+      Budget(id: 'b-transport', categoryId: 'cat-transport', periodMonthYear: currentMonthYear, allocatedKobo: 4000000), // ₦40,000
+      Budget(id: 'b-utilities', categoryId: 'cat-utilities', periodMonthYear: currentMonthYear, allocatedKobo: 3000000), // ₦30,000
+      Budget(id: 'b-giving', categoryId: 'cat-giving', periodMonthYear: currentMonthYear, allocatedKobo: 2500000), // ₦25,000
+      Budget(id: 'b-entertainment', categoryId: 'cat-entertainment', periodMonthYear: currentMonthYear, allocatedKobo: 1500000), // ₦15,000 (Non-essential)
+      Budget(id: 'b-shopping', categoryId: 'cat-shopping', periodMonthYear: currentMonthYear, allocatedKobo: 2000000), // ₦20,000 (Non-essential)
     ]);
 
     // 4. Default Routine Templates
@@ -303,6 +318,7 @@ class LocalDatabase {
   List<FinancialAccount> getFinancialAccounts() => List.unmodifiable(_financialAccounts);
   List<FinancialCategory> getFinancialCategories() => List.unmodifiable(_financialCategories);
   List<LedgerTransaction> getLedgerTransactions() => List.unmodifiable(_ledgerTransactions);
+  List<LedgerMovement> getLedgerMovements() => List.unmodifiable(_ledgerMovements);
 
   /// Executes an atomic double-entry transaction.
   /// Enforces BR-06:
@@ -335,7 +351,17 @@ class LocalDatabase {
     // 2. Persist transaction and movements
     _ledgerTransactions.insert(0, tx);
     for (final m in movements) {
-      _ledgerMovements.add(m);
+      final linkedMovement = m.transactionId == txId
+          ? m
+          : LedgerMovement(
+              id: m.id,
+              transactionId: txId,
+              accountId: m.accountId,
+              categoryId: m.categoryId,
+              amountKobo: m.amountKobo,
+              currency: m.currency,
+            );
+      _ledgerMovements.add(linkedMovement);
 
       // 3. Update account balance if movement targets an account
       if (m.accountId != null) {
@@ -350,6 +376,198 @@ class LocalDatabase {
     }
 
     _notify();
+  }
+
+  // --- Category & Budget Management ---
+  String getCurrentPeriodMonthYear([DateTime? date]) {
+    final d = date ?? DateTime.now();
+    return '${d.year}-${d.month.toString().padLeft(2, '0')}';
+  }
+
+  void addCategory(FinancialCategory category) {
+    _financialCategories.add(category);
+    _notify();
+  }
+
+  void updateCategory(FinancialCategory category) {
+    final idx = _financialCategories.indexWhere((c) => c.id == category.id);
+    if (idx >= 0) {
+      _financialCategories[idx] = category;
+      _notify();
+    }
+  }
+
+  int getCategorySpentKobo(String categoryId, {String? periodMonthYear}) {
+    final period = periodMonthYear ?? getCurrentPeriodMonthYear();
+    int total = 0;
+    for (final tx in _ledgerTransactions) {
+      if (tx.type != TransactionType.expense) continue;
+      final txPeriod = '${tx.effectiveAt.year}-${tx.effectiveAt.month.toString().padLeft(2, '0')}';
+      if (txPeriod == period) {
+        for (final m in _ledgerMovements) {
+          if (m.transactionId == tx.id && m.categoryId == categoryId && m.amountKobo > 0) {
+            total += m.amountKobo;
+          }
+        }
+      }
+    }
+    return total;
+  }
+
+  List<Budget> getBudgets({String? periodMonthYear}) {
+    final period = periodMonthYear ?? getCurrentPeriodMonthYear();
+    final list = _budgets.where((b) => b.periodMonthYear == period).toList();
+    return list.map((b) {
+      final spent = getCategorySpentKobo(b.categoryId, periodMonthYear: period);
+      return b.copyWith(spentKobo: spent);
+    }).toList();
+  }
+
+  Budget? getBudgetForCategory(String categoryId, {String? periodMonthYear}) {
+    final period = periodMonthYear ?? getCurrentPeriodMonthYear();
+    for (final b in _budgets) {
+      if (b.categoryId == categoryId && b.periodMonthYear == period) {
+        final spent = getCategorySpentKobo(categoryId, periodMonthYear: period);
+        return b.copyWith(spentKobo: spent);
+      }
+    }
+    return null;
+  }
+
+  void upsertBudget(Budget budget) {
+    final idx = _budgets.indexWhere((b) => b.categoryId == budget.categoryId && b.periodMonthYear == budget.periodMonthYear);
+    if (idx >= 0) {
+      _budgets[idx] = budget;
+    } else {
+      _budgets.add(budget);
+    }
+    _notify();
+  }
+
+  void deleteBudget(String budgetId) {
+    _budgets.removeWhere((b) => b.id == budgetId);
+    _notify();
+  }
+
+  int getMonthTotalExpenseKobo({String? periodMonthYear}) {
+    final period = periodMonthYear ?? getCurrentPeriodMonthYear();
+    int total = 0;
+    for (final tx in _ledgerTransactions) {
+      if (tx.type != TransactionType.expense) continue;
+      final txPeriod = '${tx.effectiveAt.year}-${tx.effectiveAt.month.toString().padLeft(2, '0')}';
+      if (txPeriod == period) {
+        for (final m in _ledgerMovements) {
+          if (m.transactionId == tx.id && m.categoryId != null && m.amountKobo > 0) {
+            total += m.amountKobo;
+          }
+        }
+      }
+    }
+    return total;
+  }
+
+  int getMonthTotalIncomeKobo({String? periodMonthYear}) {
+    final period = periodMonthYear ?? getCurrentPeriodMonthYear();
+    int total = 0;
+    for (final tx in _ledgerTransactions) {
+      if (tx.type != TransactionType.income) continue;
+      final txPeriod = '${tx.effectiveAt.year}-${tx.effectiveAt.month.toString().padLeft(2, '0')}';
+      if (txPeriod == period) {
+        for (final m in _ledgerMovements) {
+          if (m.transactionId == tx.id && m.accountId != null && m.amountKobo > 0) {
+            total += m.amountKobo;
+          }
+        }
+      }
+    }
+    return total;
+  }
+
+  int getUnnecessarySpendKobo({String? periodMonthYear}) {
+    final period = periodMonthYear ?? getCurrentPeriodMonthYear();
+    final nonEssentialCatIds = _financialCategories
+        .where((c) => !c.isEssential && c.type == 'expense')
+        .map((c) => c.id)
+        .toSet();
+
+    int total = 0;
+    for (final tx in _ledgerTransactions) {
+      if (tx.type != TransactionType.expense) continue;
+      final txPeriod = '${tx.effectiveAt.year}-${tx.effectiveAt.month.toString().padLeft(2, '0')}';
+      if (txPeriod == period) {
+        for (final m in _ledgerMovements) {
+          if (m.transactionId == tx.id && m.categoryId != null && nonEssentialCatIds.contains(m.categoryId) && m.amountKobo > 0) {
+            total += m.amountKobo;
+          }
+        }
+      }
+    }
+    return total;
+  }
+
+  List<Budget> getOverspendingBudgets({String? periodMonthYear}) {
+    final period = periodMonthYear ?? getCurrentPeriodMonthYear();
+    final budgets = getBudgets(periodMonthYear: period);
+    return budgets.where((b) => b.isOverspent).toList();
+  }
+
+  // --- SMS Bank Debit Ingestion Engine ---
+  List<SmsDebitAlert> getSmsDebitAlerts() => List.unmodifiable(_smsDebitAlerts);
+  List<SmsDebitAlert> getPendingSmsDebitAlerts() =>
+      _smsDebitAlerts.where((a) => !a.isProcessed && !a.isIgnored).toList();
+
+  void addSmsDebitAlert(SmsDebitAlert alert) {
+    if (_smsDebitAlerts.any((a) => a.id == alert.id || (a.rawBody == alert.rawBody && a.receivedAt.difference(alert.receivedAt).inMinutes.abs() < 5))) {
+      return;
+    }
+    _smsDebitAlerts.insert(0, alert);
+    _notify();
+  }
+
+  void processSmsDebitAlert(
+    String alertId, {
+    required String accountId,
+    required String categoryId,
+  }) {
+    final idx = _smsDebitAlerts.indexWhere((a) => a.id == alertId);
+    if (idx < 0) return;
+    final alert = _smsDebitAlerts[idx];
+
+    final txId = _uuid.v4();
+    final movements = <LedgerMovement>[
+      // Debit Category (Expense): +kobo
+      LedgerMovement(
+        id: _uuid.v4(),
+        transactionId: txId,
+        categoryId: categoryId,
+        amountKobo: alert.amountKobo,
+      ),
+      // Credit Asset Account: -kobo
+      LedgerMovement(
+        id: _uuid.v4(),
+        transactionId: txId,
+        accountId: accountId,
+        amountKobo: -alert.amountKobo,
+      ),
+    ];
+
+    postTransaction(
+      type: TransactionType.expense,
+      effectiveAt: alert.receivedAt,
+      memo: '[SMS Debit] ${alert.memo} (${alert.sender})',
+      movements: movements,
+    );
+
+    _smsDebitAlerts[idx] = alert.copyWith(isProcessed: true);
+    _notify();
+  }
+
+  void dismissSmsDebitAlert(String alertId) {
+    final idx = _smsDebitAlerts.indexWhere((a) => a.id == alertId);
+    if (idx >= 0) {
+      _smsDebitAlerts[idx] = _smsDebitAlerts[idx].copyWith(isIgnored: true);
+      _notify();
+    }
   }
 
   // --- Recovery Actions ---
@@ -491,6 +709,7 @@ class LocalDatabase {
     _recoveryActions.clear();
     _notifications.clear();
     _reviews.clear();
+    _smsDebitAlerts.clear();
     _initDefaultData();
     _notify();
   }

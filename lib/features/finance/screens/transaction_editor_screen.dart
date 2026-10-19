@@ -44,6 +44,9 @@ class _TransactionEditorScreenState extends State<TransactionEditorScreen> {
     if (categories.isNotEmpty) {
       _categoryId = categories.first.id;
     }
+    _amountController.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -242,6 +245,95 @@ class _TransactionEditorScreenState extends State<TransactionEditorScreen> {
                 onChanged: (val) => setState(() => _categoryId = val),
               ),
               const SizedBox(height: 16),
+            ],
+
+            // Governance Warning Banners (Non-Essential & Overspending)
+            if (_type == TransactionType.expense) ...[
+              Builder(
+                builder: (context) {
+                  final db = LocalDatabase.instance;
+                  final selectedCat = categories.cast<FinancialCategory?>().firstWhere(
+                        (c) => c?.id == _categoryId,
+                        orElse: () => null,
+                      );
+                  int enteredKobo = 0;
+                  try {
+                    enteredKobo = MoneyFormatter.parseToKobo(_amountController.text);
+                  } catch (_) {}
+
+                  final budget = _categoryId != null
+                      ? db.getBudgetForCategory(_categoryId!)
+                      : null;
+
+                  final bool isNonEssential = selectedCat != null && !selectedCat.isEssential;
+                  final bool isOverspending = budget != null &&
+                      budget.allocatedKobo > 0 &&
+                      (budget.spentKobo + enteredKobo) > budget.allocatedKobo;
+
+                  if (!isNonEssential && !isOverspending) {
+                    return const SizedBox.shrink();
+                  }
+
+                  return Column(
+                    children: [
+                      if (isOverspending)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEE2E2),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: const Color(0xFFF87171)),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'OVERSPEND WARNING: Adding ${MoneyFormatter.formatKobo(enteredKobo)} will exceed your monthly budget for ${selectedCat?.name} by ${MoneyFormatter.formatKobo((budget.spentKobo + enteredKobo) - budget.allocatedKobo)}!',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF991B1B),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      if (isNonEssential)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFBEB),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: const Color(0xFFFDE68A)),
+                          ),
+                          child: const Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 20),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'NON-ESSENTIAL SPEND: This is categorized as discretionary spending. Keep discretionary purchases within your target allowance.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF92400E),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
             ],
 
             // Memo / Merchant

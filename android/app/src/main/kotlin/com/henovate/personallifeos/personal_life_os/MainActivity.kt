@@ -111,5 +111,83 @@ class MainActivity: FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+
+        // --- SMS Bank Debit Ingestion Channel ---
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.henovate.personallifeos/sms").setMethodCallHandler { call, result ->
+            when (call.method) {
+                "requestSmsPermissions" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        requestPermissions(
+                            arrayOf(
+                                android.Manifest.permission.RECEIVE_SMS,
+                                android.Manifest.permission.READ_SMS
+                            ),
+                            1002
+                        )
+                    }
+                    result.success(true)
+                }
+
+                "readRecentDebitAlerts" -> {
+                    val alertsList = ArrayList<Map<String, Any>>()
+
+                    // 1. Drain any in-memory broadcast alerts captured in background
+                    while (!SmsDebitReceiver.pendingReceivedAlerts.isEmpty()) {
+                        val alert = SmsDebitReceiver.pendingReceivedAlerts.removeAt(0)
+                        alertsList.add(alert)
+                    }
+
+                    // 2. Query ContentResolver SMS Inbox if permission granted
+                    try {
+                        val hasReadSms = checkSelfPermission(android.Manifest.permission.READ_SMS) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                        if (hasReadSms) {
+                            val cursor = contentResolver.query(
+                                Uri.parse("content://sms/inbox"),
+                                arrayOf("address", "body", "date"),
+                                null,
+                                null,
+                                "date DESC"
+                            )
+
+                            cursor?.use { c ->
+                                val addressIdx = c.getColumnIndex("address")
+                                val bodyIdx = c.getColumnIndex("body")
+                                val dateIdx = c.getColumnIndex("date")
+
+                                var count = 0
+                                while (c.moveToNext() && count < 30) {
+                                    val msgBody: String = if (bodyIdx >= 0) c.getString(bodyIdx) ?: "" else ""
+                                    val contentLower = msgBody.lowercase(java.util.Locale.ROOT)
+
+                                    val isDebitAlert = contentLower.contains("debit") ||
+                                            contentLower.contains(" dr ") ||
+                                            contentLower.contains("dr:") ||
+                                            contentLower.contains("spent") ||
+                                            contentLower.contains("paid")
+
+                                    if (isDebitAlert) {
+                                        val senderStr: String = if (addressIdx >= 0) c.getString(addressIdx) ?: "Bank" else "Bank"
+                                        val timestampLong: Long = if (dateIdx >= 0) c.getLong(dateIdx) else System.currentTimeMillis()
+
+                                        val map = HashMap<String, Any>()
+                                        map["sender"] = senderStr
+                                        map["body"] = msgBody
+                                        map["date"] = timestampLong
+                                        alertsList.add(map)
+                                        count++
+                                    }
+                                }
+                            }
+                        }
+                    } catch (_: Exception) {
+                        // Return what was collected
+                    }
+
+                    result.success(alertsList)
+                }
+
+                else -> result.notImplemented()
+            }
+        }
     }
 }
