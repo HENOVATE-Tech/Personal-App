@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../config/app_constants.dart';
+import '../services/api_service.dart';
 import 'schema_models.dart';
 
 class LocalDatabase {
@@ -50,8 +53,453 @@ class LocalDatabase {
   final _changeStreamController = StreamController<void>.broadcast();
   Stream<void> get changes => _changeStreamController.stream;
 
-  void _notify() {
+  bool _isStorageReady = false;
+  bool get isStorageReady => _isStorageReady;
+
+  Future<void> initStorage() async {
+    if (_isStorageReady) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final hasData = prefs.getBool('plos_initialized') ?? false;
+      if (hasData) {
+        _loadFromStorage(prefs);
+      } else {
+        _initDefaultData();
+        await saveToStorage();
+        await prefs.setBool('plos_initialized', true);
+      }
+    } catch (_) {
+      if (_workspaces.isEmpty) {
+        _initDefaultData();
+      }
+    }
+    _isStorageReady = true;
+    _notify(skipSync: true);
+  }
+
+  void _notify({bool skipSync = false}) {
     _changeStreamController.add(null);
+    if (!skipSync) {
+      saveToStorage();
+      ApiService.instance.schedulePush(this);
+    }
+  }
+
+  Future<void> saveToStorage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      final wsList = _workspaces.map((w) => {
+        'id': w.id,
+        'name': w.name,
+        'type': w.type,
+        'colorValue': w.colorValue,
+        'isDefault': w.isDefault,
+      }).toList();
+      await prefs.setString('plos_workspaces', jsonEncode(wsList));
+
+      final incList = _incomeSources.map((s) => {
+        'id': s.id,
+        'name': s.name,
+        'accountId': s.accountId,
+        'expectedMonthlyKobo': s.expectedMonthlyKobo,
+        'receivedKobo': s.receivedKobo,
+        'workspaceId': s.workspaceId,
+      }).toList();
+      await prefs.setString('plos_income_sources', jsonEncode(incList));
+
+      final tList = _tasks.map((t) => {
+        'id': t.id,
+        'workspaceId': t.workspaceId,
+        'title': t.title,
+        'nextAction': t.nextAction,
+        'importance': t.importance.name,
+        'isTopPriority': t.isTopPriority,
+        'status': t.status.name,
+        'completedAt': t.completedAt?.toIso8601String(),
+        'scheduledDate': t.scheduledDate?.toIso8601String(),
+        'estimateMinutes': t.estimateMinutes,
+        'createdAt': t.createdAt.toIso8601String(),
+      }).toList();
+      await prefs.setString('plos_tasks', jsonEncode(tList));
+
+      final accList = _financialAccounts.map((a) => {
+        'id': a.id,
+        'name': a.name,
+        'accountType': a.accountType.name,
+        'currency': a.currency,
+        'openingBalanceKobo': a.openingBalanceKobo,
+        'balanceKobo': a.balanceKobo,
+        'isArchived': a.isArchived,
+      }).toList();
+      await prefs.setString('plos_accounts', jsonEncode(accList));
+
+      final bList = _budgets.map((b) => {
+        'id': b.id,
+        'categoryId': b.categoryId,
+        'periodMonthYear': b.periodMonthYear,
+        'allocatedKobo': b.allocatedKobo,
+        'spentKobo': b.spentKobo,
+        'rolloverEligible': b.rolloverEligible,
+      }).toList();
+      await prefs.setString('plos_budgets', jsonEncode(bList));
+
+      final revList = _reviews.map((r) => {
+        'id': r.id,
+        'kind': r.kind,
+        'completedAt': r.completedAt.toIso8601String(),
+        'summary': r.summary,
+        'accomplishments': r.accomplishments,
+        'lessons': r.lessons,
+      }).toList();
+      await prefs.setString('plos_reviews', jsonEncode(revList));
+
+      final nList = _notes.map((n) => n.toJson()).toList();
+      await prefs.setString('plos_notes', jsonEncode(nList));
+
+      final fList = _followUps.map((f) => {
+        'id': f.id,
+        'workspaceId': f.workspaceId,
+        'personName': f.personName,
+        'commitment': f.commitment,
+        'requestedDate': f.requestedDate.toIso8601String(),
+        'expectedDate': f.expectedDate.toIso8601String(),
+        'status': f.status,
+      }).toList();
+      await prefs.setString('plos_followups', jsonEncode(fList));
+
+      final cList = _chores.map((c) => {
+        'id': c.id,
+        'workspaceId': c.workspaceId,
+        'title': c.title,
+        'frequency': c.frequency,
+        'estimatedMins': c.estimatedMins,
+        'isCompleted': c.isCompleted,
+        'lastCompletedAt': c.lastCompletedAt?.toIso8601String(),
+      }).toList();
+      await prefs.setString('plos_chores', jsonEncode(cList));
+
+      final careList = _careChecklistItems.map((c) => {
+        'id': c.id,
+        'title': c.title,
+        'period': c.period,
+        'isCompleted': c.isCompleted,
+      }).toList();
+      await prefs.setString('plos_care', jsonEncode(careList));
+
+      final sList = _sleepLogs.map((s) => {
+        'id': s.id,
+        'bedtime': s.bedtime.toIso8601String(),
+        'wakeTime': s.wakeTime.toIso8601String(),
+        'actualSleepMins': s.actualSleepMins,
+        'wellbeingScore': s.wellbeingScore,
+        'notes': s.notes,
+      }).toList();
+      await prefs.setString('plos_sleep', jsonEncode(sList));
+
+      final pList = _prayerSessions.map((p) => {
+        'id': p.id,
+        'workspaceId': p.workspaceId,
+        'theme': p.theme,
+        'scriptureRefs': p.scriptureRefs,
+        'actualDurationMins': p.actualDurationMins,
+        'notes': p.notes,
+        'isAnswered': p.isAnswered,
+        'sessionDate': p.sessionDate.toIso8601String(),
+      }).toList();
+      await prefs.setString('plos_prayers', jsonEncode(pList));
+
+      final fastList = _fastPlans.map((f) => {
+        'id': f.id,
+        'title': f.title,
+        'mode': f.mode,
+        'safetyNotes': f.safetyNotes,
+        'startDate': f.startDate.toIso8601String(),
+        'endDate': f.endDate.toIso8601String(),
+        'isCompleted': f.isCompleted,
+      }).toList();
+      await prefs.setString('plos_fasts', jsonEncode(fastList));
+
+      final outList = _outfitPlans.map((o) => {
+        'id': o.id,
+        'dayOfWeek': o.dayOfWeek,
+        'calendarDate': o.calendarDate.toIso8601String(),
+        'outfitDescription': o.outfitDescription,
+        'status': o.status,
+      }).toList();
+      await prefs.setString('plos_outfits', jsonEncode(outList));
+
+      final bkList = _books.map((b) => {
+        'id': b.id,
+        'title': b.title,
+        'author': b.author,
+        'totalPages': b.totalPages,
+        'currentPage': b.currentPage,
+        'status': b.status,
+      }).toList();
+      await prefs.setString('plos_books', jsonEncode(bkList));
+    } catch (_) {}
+  }
+
+  void _loadFromStorage(SharedPreferences prefs) {
+    try {
+      final wsStr = prefs.getString('plos_workspaces');
+      if (wsStr != null && wsStr.isNotEmpty) {
+        final List list = jsonDecode(wsStr);
+        _workspaces.clear();
+        for (final item in list) {
+          _workspaces.add(Workspace(
+            id: item['id'] as String,
+            name: item['name'] as String,
+            type: item['type'] as String? ?? 'personal',
+            colorValue: (item['colorValue'] as num?)?.toInt() ?? 0xFF0D9488,
+            isDefault: item['isDefault'] as bool? ?? false,
+          ));
+        }
+      }
+
+      final incStr = prefs.getString('plos_income_sources');
+      if (incStr != null && incStr.isNotEmpty) {
+        final List list = jsonDecode(incStr);
+        _incomeSources.clear();
+        for (final item in list) {
+          _incomeSources.add(IncomeSource(
+            id: item['id'] as String,
+            name: item['name'] as String,
+            accountId: item['accountId'] as String?,
+            expectedMonthlyKobo: (item['expectedMonthlyKobo'] as num?)?.toInt() ?? 0,
+            receivedKobo: (item['receivedKobo'] as num?)?.toInt() ?? 0,
+            workspaceId: item['workspaceId'] as String?,
+          ));
+        }
+      }
+
+      final tStr = prefs.getString('plos_tasks');
+      if (tStr != null && tStr.isNotEmpty) {
+        final List list = jsonDecode(tStr);
+        _tasks.clear();
+        for (final item in list) {
+          _tasks.add(Task(
+            id: item['id'] as String,
+            workspaceId: item['workspaceId'] as String? ?? AppConstants.workspacePersonalId,
+            title: item['title'] as String,
+            nextAction: item['nextAction'] as String? ?? '',
+            importance: TaskImportance.values.firstWhere(
+              (v) => v.name == item['importance'],
+              orElse: () => TaskImportance.medium,
+            ),
+            isTopPriority: item['isTopPriority'] as bool? ?? false,
+            status: TaskStatus.values.firstWhere(
+              (v) => v.name == item['status'],
+              orElse: () => TaskStatus.next,
+            ),
+            completedAt: item['completedAt'] != null ? DateTime.tryParse(item['completedAt'] as String) : null,
+            scheduledDate: item['scheduledDate'] != null ? DateTime.tryParse(item['scheduledDate'] as String) : null,
+            estimateMinutes: (item['estimateMinutes'] as num?)?.toInt() ?? 30,
+            createdAt: item['createdAt'] != null ? DateTime.tryParse(item['createdAt'] as String) ?? DateTime.now() : DateTime.now(),
+          ));
+        }
+      }
+
+      final accStr = prefs.getString('plos_accounts');
+      if (accStr != null && accStr.isNotEmpty) {
+        final List list = jsonDecode(accStr);
+        _financialAccounts.clear();
+        for (final item in list) {
+          _financialAccounts.add(FinancialAccount(
+            id: item['id'] as String,
+            name: item['name'] as String,
+            accountType: AccountType.values.firstWhere(
+              (v) => v.name == item['accountType'],
+              orElse: () => AccountType.bank,
+            ),
+            currency: item['currency'] as String? ?? 'NGN',
+            openingBalanceKobo: (item['openingBalanceKobo'] as num?)?.toInt() ?? 0,
+            balanceKobo: (item['balanceKobo'] as num?)?.toInt() ?? 0,
+            isArchived: item['isArchived'] as bool? ?? false,
+          ));
+        }
+      }
+
+      final bStr = prefs.getString('plos_budgets');
+      if (bStr != null && bStr.isNotEmpty) {
+        final List list = jsonDecode(bStr);
+        _budgets.clear();
+        for (final item in list) {
+          _budgets.add(Budget(
+            id: item['id'] as String,
+            categoryId: item['categoryId'] as String,
+            periodMonthYear: item['periodMonthYear'] as String,
+            allocatedKobo: (item['allocatedKobo'] as num?)?.toInt() ?? 0,
+            spentKobo: (item['spentKobo'] as num?)?.toInt() ?? 0,
+            rolloverEligible: item['rolloverEligible'] as bool? ?? false,
+          ));
+        }
+      }
+
+      final revStr = prefs.getString('plos_reviews');
+      if (revStr != null && revStr.isNotEmpty) {
+        final List list = jsonDecode(revStr);
+        _reviews.clear();
+        for (final item in list) {
+          _reviews.add(ReviewEntry(
+            id: item['id'] as String,
+            kind: item['kind'] as String? ?? 'weekly',
+            completedAt: item['completedAt'] != null ? DateTime.tryParse(item['completedAt'] as String) ?? DateTime.now() : DateTime.now(),
+            summary: item['summary'] as String? ?? 'Review',
+            accomplishments: item['accomplishments'] as String? ?? '',
+            lessons: item['lessons'] as String? ?? '',
+          ));
+        }
+      }
+
+      final nStr = prefs.getString('plos_notes');
+      if (nStr != null && nStr.isNotEmpty) {
+        final List list = jsonDecode(nStr);
+        _notes.clear();
+        for (final item in list) {
+          try {
+            _notes.add(OmniNote.fromJson(Map<String, dynamic>.from(item as Map)));
+          } catch (_) {}
+        }
+      }
+
+      final fStr = prefs.getString('plos_followups');
+      if (fStr != null && fStr.isNotEmpty) {
+        final List list = jsonDecode(fStr);
+        _followUps.clear();
+        for (final item in list) {
+          _followUps.add(FollowUp(
+            id: item['id'] as String,
+            workspaceId: item['workspaceId'] as String? ?? AppConstants.workspaceBemsId,
+            personName: item['personName'] as String? ?? '',
+            commitment: item['commitment'] as String? ?? '',
+            requestedDate: item['requestedDate'] != null ? DateTime.tryParse(item['requestedDate'] as String) ?? DateTime.now() : DateTime.now(),
+            expectedDate: item['expectedDate'] != null ? DateTime.tryParse(item['expectedDate'] as String) ?? DateTime.now() : DateTime.now(),
+            status: item['status'] as String? ?? 'pending',
+          ));
+        }
+      }
+
+      final cStr = prefs.getString('plos_chores');
+      if (cStr != null && cStr.isNotEmpty) {
+        final List list = jsonDecode(cStr);
+        _chores.clear();
+        for (final item in list) {
+          _chores.add(Chore(
+            id: item['id'] as String,
+            workspaceId: item['workspaceId'] as String? ?? AppConstants.workspacePersonalId,
+            title: item['title'] as String,
+            frequency: item['frequency'] as String? ?? 'weekly',
+            estimatedMins: (item['estimatedMins'] as num?)?.toInt() ?? 30,
+            isCompleted: item['isCompleted'] as bool? ?? false,
+            lastCompletedAt: item['lastCompletedAt'] != null ? DateTime.tryParse(item['lastCompletedAt'] as String) : null,
+          ));
+        }
+      }
+
+      final careStr = prefs.getString('plos_care');
+      if (careStr != null && careStr.isNotEmpty) {
+        final List list = jsonDecode(careStr);
+        _careChecklistItems.clear();
+        for (final item in list) {
+          _careChecklistItems.add(CareChecklistItem(
+            id: item['id'] as String,
+            title: item['title'] as String,
+            period: item['period'] as String? ?? 'morning',
+            isCompleted: item['isCompleted'] as bool? ?? false,
+          ));
+        }
+      }
+
+      final sleepStr = prefs.getString('plos_sleep');
+      if (sleepStr != null && sleepStr.isNotEmpty) {
+        final List list = jsonDecode(sleepStr);
+        _sleepLogs.clear();
+        for (final item in list) {
+          _sleepLogs.add(SleepLog(
+            id: item['id'] as String,
+            bedtime: item['bedtime'] != null ? DateTime.tryParse(item['bedtime'] as String) ?? DateTime.now() : DateTime.now(),
+            wakeTime: item['wakeTime'] != null ? DateTime.tryParse(item['wakeTime'] as String) ?? DateTime.now() : DateTime.now(),
+            actualSleepMins: (item['actualSleepMins'] as num?)?.toInt() ?? 420,
+            wellbeingScore: (item['wellbeingScore'] as num?)?.toInt() ?? 3,
+            notes: item['notes'] as String?,
+          ));
+        }
+      }
+
+      final pStr = prefs.getString('plos_prayers');
+      if (pStr != null && pStr.isNotEmpty) {
+        final List list = jsonDecode(pStr);
+        _prayerSessions.clear();
+        for (final item in list) {
+          _prayerSessions.add(PrayerSession(
+            id: item['id'] as String,
+            workspaceId: item['workspaceId'] as String? ?? AppConstants.workspacePersonalId,
+            theme: item['theme'] as String,
+            scriptureRefs: item['scriptureRefs'] as String? ?? '',
+            actualDurationMins: (item['actualDurationMins'] as num?)?.toInt() ?? 30,
+            notes: item['notes'] as String?,
+            isAnswered: item['isAnswered'] as bool? ?? false,
+            sessionDate: item['sessionDate'] != null ? DateTime.tryParse(item['sessionDate'] as String) ?? DateTime.now() : DateTime.now(),
+          ));
+        }
+      }
+
+      final fPlanStr = prefs.getString('plos_fasts');
+      if (fPlanStr != null && fPlanStr.isNotEmpty) {
+        final List list = jsonDecode(fPlanStr);
+        _fastPlans.clear();
+        for (final item in list) {
+          _fastPlans.add(FastPlan(
+            id: item['id'] as String,
+            title: item['title'] as String? ?? 'Fast',
+            mode: item['mode'] as String? ?? 'Water Only',
+            safetyNotes: item['safetyNotes'] as String? ?? 'Stay hydrated.',
+            startDate: item['startDate'] != null
+                ? (DateTime.tryParse(item['startDate'] as String) ?? DateTime.now())
+                : DateTime.now(),
+            endDate: item['endDate'] != null
+                ? (DateTime.tryParse(item['endDate'] as String) ?? DateTime.now().add(const Duration(hours: 16)))
+                : DateTime.now().add(const Duration(hours: 16)),
+            isCompleted: item['isCompleted'] as bool? ?? false,
+          ));
+        }
+      }
+
+      final outStr = prefs.getString('plos_outfits');
+      if (outStr != null && outStr.isNotEmpty) {
+        final List list = jsonDecode(outStr);
+        _outfitPlans.clear();
+        for (final item in list) {
+          _outfitPlans.add(OutfitPlan(
+            id: item['id'] as String,
+            dayOfWeek: item['dayOfWeek'] as String? ?? 'Monday',
+            calendarDate: item['calendarDate'] != null
+                ? (DateTime.tryParse(item['calendarDate'] as String) ?? DateTime.now())
+                : DateTime.now(),
+            outfitDescription: item['outfitDescription'] as String? ?? '',
+            status: item['status'] as String? ?? 'Ready',
+          ));
+        }
+      }
+
+      final bkStr = prefs.getString('plos_books');
+      if (bkStr != null && bkStr.isNotEmpty) {
+        final List list = jsonDecode(bkStr);
+        _books.clear();
+        for (final item in list) {
+          _books.add(Book(
+            id: item['id'] as String,
+            title: item['title'] as String,
+            author: item['author'] as String,
+            totalPages: (item['totalPages'] as num?)?.toInt() ?? 200,
+            currentPage: (item['currentPage'] as num?)?.toInt() ?? 0,
+            status: item['status'] as String? ?? 'in_progress',
+          ));
+        }
+      }
+    } catch (_) {}
   }
 
   // --- Initial Data Seed ---
@@ -352,14 +800,14 @@ class LocalDatabase {
   Workspace? getWorkspaceById(String id) =>
       _workspaces.cast<Workspace?>().firstWhere((w) => w?.id == id, orElse: () => null);
 
-  void upsertWorkspace(Workspace ws) {
+  void upsertWorkspace(Workspace ws, {bool skipSync = false}) {
     final idx = _workspaces.indexWhere((w) => w.id == ws.id);
     if (idx >= 0) {
       _workspaces[idx] = ws;
     } else {
       _workspaces.add(ws);
     }
-    _notify();
+    _notify(skipSync: skipSync);
   }
 
   void deleteWorkspace(String id) {
@@ -376,14 +824,14 @@ class LocalDatabase {
     return _incomeSources.where((s) => s.workspaceId == null || s.workspaceId == workspaceId).toList();
   }
 
-  void upsertIncomeSource(IncomeSource source) {
+  void upsertIncomeSource(IncomeSource source, {bool skipSync = false}) {
     final idx = _incomeSources.indexWhere((s) => s.id == source.id);
     if (idx >= 0) {
       _incomeSources[idx] = source;
     } else {
       _incomeSources.add(source);
     }
-    _notify();
+    _notify(skipSync: skipSync);
   }
 
   void deleteIncomeSource(String id) {
@@ -402,14 +850,14 @@ class LocalDatabase {
   Task? getTaskById(String id) =>
       _tasks.cast<Task?>().firstWhere((t) => t?.id == id, orElse: () => null);
 
-  void upsertTask(Task task) {
+  void upsertTask(Task task, {bool skipSync = false}) {
     final idx = _tasks.indexWhere((t) => t.id == task.id);
     if (idx >= 0) {
       _tasks[idx] = task;
     } else {
       _tasks.add(task);
     }
-    _notify();
+    _notify(skipSync: skipSync);
   }
 
   void deleteTask(String id) {
@@ -626,14 +1074,14 @@ class LocalDatabase {
     return null;
   }
 
-  void upsertBudget(Budget budget) {
+  void upsertBudget(Budget budget, {bool skipSync = false}) {
     final idx = _budgets.indexWhere((b) => b.categoryId == budget.categoryId && b.periodMonthYear == budget.periodMonthYear);
     if (idx >= 0) {
       _budgets[idx] = budget;
     } else {
       _budgets.add(budget);
     }
-    _notify();
+    _notify(skipSync: skipSync);
   }
 
   void deleteBudget(String budgetId) {
@@ -997,14 +1445,14 @@ class LocalDatabase {
   OmniNote? getNoteById(String id) =>
       _notes.cast<OmniNote?>().firstWhere((n) => n?.id == id, orElse: () => null);
 
-  void upsertNote(OmniNote note) {
+  void upsertNote(OmniNote note, {bool skipSync = false}) {
     final idx = _notes.indexWhere((n) => n.id == note.id);
     if (idx >= 0) {
       _notes[idx] = note;
     } else {
       _notes.insert(0, note);
     }
-    _notify();
+    _notify(skipSync: skipSync);
   }
 
   void deleteNote(String id) {

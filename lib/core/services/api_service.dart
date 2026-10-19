@@ -192,6 +192,16 @@ class ApiService {
     }
   }
 
+  Timer? _pushDebounceTimer;
+
+  /// Debounces rapid local edits and pushes them live to the backend
+  void schedulePush(LocalDatabase db) {
+    _pushDebounceTimer?.cancel();
+    _pushDebounceTimer = Timer(const Duration(milliseconds: 800), () {
+      syncAll(db);
+    });
+  }
+
   /// Full 2-way sync with local database
   Future<ApiSyncResult> syncAll(LocalDatabase db) async {
     try {
@@ -331,18 +341,16 @@ class ApiService {
           final remoteWs = tables['workspaces'] as List;
           for (final row in remoteWs) {
             final wsId = row['id'] as String;
-            final existing = db.getWorkspaces().where((w) => w.id == wsId).firstOrNull;
-            if (existing == null) {
-              db.upsertWorkspace(
-                Workspace(
-                  id: wsId,
-                  name: row['name'] as String? ?? 'Workspace',
-                  type: row['type'] as String? ?? 'personal',
-                  colorValue: (row['color_value'] as num?)?.toInt() ?? 0xFF0D9488,
-                ),
-              );
-              totalPulled++;
-            }
+            db.upsertWorkspace(
+              Workspace(
+                id: wsId,
+                name: row['name'] as String? ?? 'Workspace',
+                type: row['type'] as String? ?? 'personal',
+                colorValue: (row['color_value'] as num?)?.toInt() ?? 0xFF0D9488,
+              ),
+              skipSync: true,
+            );
+            totalPulled++;
           }
         }
 
@@ -352,55 +360,69 @@ class ApiService {
           final remoteIncomes = incList as List;
           for (final row in remoteIncomes) {
             final incId = row['id'] as String;
-            final existing = db.getIncomeSources().where((i) => i.id == incId).firstOrNull;
-            if (existing == null) {
-              db.upsertIncomeSource(
-                IncomeSource(
-                  id: incId,
-                  name: row['name'] as String? ?? 'Income Stream',
-                  accountId: row['account_id'] as String?,
-                  expectedMonthlyKobo: (row['expected_monthly_kobo'] as num?)?.toInt() ?? 0,
-                  receivedKobo: (row['received_kobo'] as num?)?.toInt() ?? 0,
-                  workspaceId: row['workspace_id'] as String?,
-                ),
-              );
-              totalPulled++;
-            }
+            db.upsertIncomeSource(
+              IncomeSource(
+                id: incId,
+                name: row['name'] as String? ?? 'Income Stream',
+                accountId: row['account_id'] as String?,
+                expectedMonthlyKobo: (row['expected_monthly_kobo'] as num?)?.toInt() ?? 0,
+                receivedKobo: (row['received_kobo'] as num?)?.toInt() ?? 0,
+                workspaceId: row['workspace_id'] as String?,
+              ),
+              skipSync: true,
+            );
+            totalPulled++;
           }
         }
 
-        // Merge remote tasks into local if not present
+        // Merge remote tasks
         if (tables['tasks'] != null) {
           final remoteTasks = tables['tasks'] as List;
           for (final row in remoteTasks) {
-            final existing = db.getTasks().where((t) => t.id == row['id']).firstOrNull;
-            if (existing == null) {
-              db.upsertTask(
-                Task(
-                  id: row['id'] as String,
-                  workspaceId: row['workspace_id'] as String? ?? 'ws-personal',
-                  title: row['title'] as String,
-                  nextAction: row['next_action'] as String? ?? '',
-                  importance: TaskImportance.values.firstWhere(
-                    (v) => v.name == row['importance'],
-                    orElse: () => TaskImportance.medium,
-                  ),
-                  isTopPriority: row['is_top_priority'] as bool? ?? false,
-                  status: (row['is_completed'] as bool? ?? false)
-                      ? TaskStatus.completed
-                      : TaskStatus.next,
-                  completedAt: row['completed_at'] != null
-                      ? DateTime.tryParse(row['completed_at'] as String)
-                      : null,
-                  scheduledDate: row['scheduled_date'] != null
-                      ? DateTime.tryParse(row['scheduled_date'] as String)
-                      : null,
-                  estimateMinutes: (row['duration_mins'] as num?)?.toInt() ?? 30,
-                  createdAt: DateTime.now(),
+            db.upsertTask(
+              Task(
+                id: row['id'] as String,
+                workspaceId: row['workspace_id'] as String? ?? 'ws-personal',
+                title: row['title'] as String,
+                nextAction: row['next_action'] as String? ?? '',
+                importance: TaskImportance.values.firstWhere(
+                  (v) => v.name == row['importance'],
+                  orElse: () => TaskImportance.medium,
                 ),
-              );
-              totalPulled++;
-            }
+                isTopPriority: row['is_top_priority'] as bool? ?? false,
+                status: (row['is_completed'] as bool? ?? false)
+                    ? TaskStatus.completed
+                    : TaskStatus.next,
+                completedAt: row['completed_at'] != null
+                    ? DateTime.tryParse(row['completed_at'] as String)
+                    : null,
+                scheduledDate: row['scheduled_date'] != null
+                    ? DateTime.tryParse(row['scheduled_date'] as String)
+                    : null,
+                estimateMinutes: (row['duration_mins'] as num?)?.toInt() ?? 30,
+                createdAt: DateTime.now(),
+              ),
+              skipSync: true,
+            );
+            totalPulled++;
+          }
+        }
+
+        // Merge remote budgets
+        if (tables['budgets'] != null) {
+          for (final row in tables['budgets'] as List) {
+            db.upsertBudget(
+              Budget(
+                id: row['id'] as String,
+                categoryId: row['category_id'] as String,
+                periodMonthYear: row['period_month_year'] as String,
+                allocatedKobo: (row['allocated_kobo'] as num?)?.toInt() ?? 0,
+                spentKobo: (row['spent_kobo'] as num?)?.toInt() ?? 0,
+                rolloverEligible: row['rollover_eligible'] as bool? ?? false,
+              ),
+              skipSync: true,
+            );
+            totalPulled++;
           }
         }
 
@@ -410,11 +432,14 @@ class ApiService {
           for (final row in remoteNotes) {
             try {
               final note = OmniNote.fromJson(Map<String, dynamic>.from(row as Map));
-              db.upsertNote(note);
+              db.upsertNote(note, skipSync: true);
               totalPulled++;
             } catch (_) {}
           }
         }
+
+        // Persist fresh pull locally
+        await db.saveToStorage();
       }
 
       return ApiSyncResult(
@@ -432,3 +457,4 @@ class ApiService {
     }
   }
 }
+

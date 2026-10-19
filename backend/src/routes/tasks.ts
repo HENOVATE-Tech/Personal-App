@@ -61,4 +61,15 @@ router.patch('/:id/toggle', async (req: Request, res: Response) => {
   }
 });
 
+// DELETE /api/tasks/:id
+router.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM tasks WHERE id = $1;', [id]);
+    res.json({ success: true, message: 'Task deleted' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 export default router;

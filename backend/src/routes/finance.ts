@@ -163,4 +163,26 @@ router.post('/income-sources', async (req: Request, res: Response) => {
   }
 });
 
+// DELETE /api/finance/income-sources/:id
+router.delete('/income-sources/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM income_sources WHERE id = $1;', [id]);
+    res.json({ success: true, message: 'Income source deleted' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// DELETE /api/finance/budgets/:id
+router.delete('/budgets/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM budgets WHERE id = $1;', [id]);
+    res.json({ success: true, message: 'Budget deleted' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 export default router;

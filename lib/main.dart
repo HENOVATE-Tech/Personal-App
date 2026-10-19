@@ -7,10 +7,13 @@ import 'core/services/notification_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize notification reconciliation
+  // 1. Initialize permanent local storage (never lost across browser refreshes or device reboots)
+  await LocalDatabase.instance.initStorage();
+
+  // 2. Initialize notification reconciliation
   NotificationService.instance.reconcileUpcomingAlarms();
 
-  // Asynchronously detect active backend and run sync in background
+  // 3. Detect active backend and run live two-way sync with Supabase PostgreSQL
   ApiService.instance.detectBestBaseUrl().then((_) {
     ApiService.instance.syncAll(LocalDatabase.instance);
   }).catchError((_) {});
