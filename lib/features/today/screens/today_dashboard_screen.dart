@@ -38,6 +38,15 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
   bool _lowEnergyMode = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Fire non-blocking background REST API sync with Render on startup
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ApiService.instance.syncAll(LocalDatabase.instance);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return StreamBuilder<void>(
       stream: LocalDatabase.instance.changes,

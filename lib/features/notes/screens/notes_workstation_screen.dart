@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../../core/config/theme.dart';
 import '../../../core/database/local_database.dart';
 import '../../../core/database/schema_models.dart';
+import '../../../core/services/api_service.dart';
 import '../models/note_ui_extensions.dart';
 import 'note_editor_screen.dart';
 
@@ -173,10 +174,35 @@ class _NotesWorkstationScreenState extends State<NotesWorkstationScreen> {
                 onPressed: () async {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Syncing notes with Cloud Supabase & Render...'),
-                      duration: Duration(seconds: 1),
+                      content: Row(
+                        children: [
+                          SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          ),
+                          SizedBox(width: 10),
+                          Text('Syncing with Render REST API & Supabase...'),
+                        ],
+                      ),
+                      duration: Duration(seconds: 2),
+                      behavior: SnackBarBehavior.floating,
                     ),
                   );
+                  final res = await ApiService.instance.syncAll(LocalDatabase.instance);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          res.isSuccess
+                              ? 'Synced: ${res.recordsPushed} records pushed, ${res.recordsPulled} pulled from Render'
+                              : 'Sync error: ${res.errorMessage}',
+                        ),
+                        backgroundColor: res.isSuccess ? Colors.green.shade700 : Colors.red.shade700,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
                 },
               ),
             ],

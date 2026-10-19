@@ -16,6 +16,17 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
+// Request Logger
+app.use((req, res, next) => {
+  const start = Date.now();
+  console.log(`📡 [${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.log(`✅ [${new Date().toISOString()}] ${req.method} ${req.originalUrl} -> ${res.statusCode} (${duration}ms)`);
+  });
+  next();
+});
+
 // Health Check Endpoint (Render uses this to verify deployment health)
 app.get('/health', async (_req: Request, res: Response) => {
   try {

@@ -62,7 +62,7 @@ class ApiService {
   ApiService._internal();
 
   /// Production Render URL
-  static const String defaultRenderUrl = 'https://personal-app-3hgg.onrender.com';
+  static const String defaultRenderUrl = 'https://personal-app-3hgq.onrender.com';
   static const String localUrl = 'http://localhost:5000';
 
   String _baseUrl = defaultRenderUrl;
