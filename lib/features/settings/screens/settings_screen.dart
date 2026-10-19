@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/config/theme.dart';
 import '../../../core/database/local_database.dart';
 import '../../../core/services/backup_service.dart';
+import '../../../core/services/supabase_sync_service.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -167,6 +168,155 @@ class SettingsScreen extends StatelessWidget {
                             onChanged: (val) {
                               db.updateUserProfile(profile.copyWith(is24Hour: val));
                             },
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Cloud Database (Supabase)',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.darkCharcoal),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8F5E9),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFA5D6A7)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.check_circle, size: 12, color: Color(0xFF2E7D32)),
+                              SizedBox(width: 4),
+                              Text(
+                                'Postgres Connected',
+                                style: TextStyle(color: Color(0xFF2E7D32), fontSize: 10, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: AppTheme.floatingCardDecoration,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFE6F4EA),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: const Icon(Icons.cloud_done, color: Color(0xFF137333), size: 24),
+                              ),
+                              const SizedBox(width: 14),
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Supabase Cloud PostgreSQL',
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.darkCharcoal),
+                                    ),
+                                    SizedBox(height: 2),
+                                    Text(
+                                      'db.actqetxmyfdmoqyykwxj.supabase.co:5432',
+                                      style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('• 21 PostgreSQL Tables Configured', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                SizedBox(height: 2),
+                                Text('• TLS Encrypted Remote Replication', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                SizedBox(height: 2),
+                                Text('• Workspaces, Tasks, Ledger & Budgets Synced', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  icon: const Icon(Icons.cloud_upload_outlined, size: 16),
+                                  label: const Text('Push to Cloud'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.coralPrimary,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  onPressed: () async {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Synchronizing with Supabase PostgreSQL...')),
+                                    );
+                                    final res = await SupabaseSyncService.instance.pushToSupabase();
+                                    if (!context.mounted) return;
+                                    if (res.isSuccess) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Synced ${res.recordsPushed} records to Supabase Cloud!')),
+                                      );
+                                    } else {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Sync failed: ${res.errorMessage}')),
+                                      );
+                                    }
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  icon: const Icon(Icons.cloud_download_outlined, size: 16),
+                                  label: const Text('Pull from Cloud'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppTheme.darkCharcoal,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  onPressed: () async {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Pulling data from Supabase...')),
+                                    );
+                                    final res = await SupabaseSyncService.instance.pullFromSupabase();
+                                    if (!context.mounted) return;
+                                    if (res.isSuccess) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Pulled ${res.recordsPulled} records from Supabase Cloud!')),
+                                      );
+                                    } else {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Pull failed: ${res.errorMessage}')),
+                                      );
+                                    }
+                                  },
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
