@@ -13,10 +13,11 @@ class LocalDatabase {
 
   UserProfile _userProfile = const UserProfile(
     id: 'henry-profile',
-    displayName: 'Henry',
+    displayName: 'Henry Adeleke',
     fullName: 'Henry Solomon Adeleke',
   );
   final List<Workspace> _workspaces = [];
+  final List<IncomeSource> _incomeSources = [];
   final List<Task> _tasks = [];
   final List<TaskChecklistItem> _taskChecklistItems = [];
   final List<CalendarEvent> _calendarEvents = [];
@@ -125,6 +126,34 @@ class LocalDatabase {
       Budget(id: 'b-giving', categoryId: 'cat-giving', periodMonthYear: currentMonthYear, allocatedKobo: 2500000), // ₦25,000
       Budget(id: 'b-entertainment', categoryId: 'cat-entertainment', periodMonthYear: currentMonthYear, allocatedKobo: 1500000), // ₦15,000 (Non-essential)
       Budget(id: 'b-shopping', categoryId: 'cat-shopping', periodMonthYear: currentMonthYear, allocatedKobo: 2000000), // ₦20,000 (Non-essential)
+    ]);
+
+    // 3c. Default Income Sources with monthly target budgets
+    _incomeSources.addAll([
+      const IncomeSource(
+        id: 'inc-salary',
+        name: 'Bems Group Executive Salary',
+        accountId: 'acc-gtb',
+        expectedMonthlyKobo: 120000000, // ₦1,200,000.00
+        receivedKobo: 120000000,
+        workspaceId: AppConstants.workspaceBemsId,
+      ),
+      const IncomeSource(
+        id: 'inc-consulting',
+        name: 'Henovate Tech Consulting & Advisory',
+        accountId: 'acc-gtb',
+        expectedMonthlyKobo: 60000000, // ₦600,000.00
+        receivedKobo: 45000000,
+        workspaceId: AppConstants.workspaceHenovateId,
+      ),
+      const IncomeSource(
+        id: 'inc-investments',
+        name: 'Dividends & Asset Returns',
+        accountId: 'acc-savings',
+        expectedMonthlyKobo: 25000000, // ₦250,000.00
+        receivedKobo: 25000000,
+        workspaceId: AppConstants.workspacePersonalId,
+      ),
     ]);
 
     // 4. Default Routine Templates
@@ -303,6 +332,45 @@ class LocalDatabase {
   List<Workspace> getWorkspaces() => List.unmodifiable(_workspaces);
   Workspace? getWorkspaceById(String id) =>
       _workspaces.cast<Workspace?>().firstWhere((w) => w?.id == id, orElse: () => null);
+
+  void upsertWorkspace(Workspace ws) {
+    final idx = _workspaces.indexWhere((w) => w.id == ws.id);
+    if (idx >= 0) {
+      _workspaces[idx] = ws;
+    } else {
+      _workspaces.add(ws);
+    }
+    _notify();
+  }
+
+  void deleteWorkspace(String id) {
+    if (_workspaces.length <= 1) return; // Keep at least one
+    _workspaces.removeWhere((w) => w.id == id && !w.isDefault);
+    _notify();
+  }
+
+  // --- Income Sources & Revenue Targets ---
+  List<IncomeSource> getIncomeSources({String? workspaceId}) {
+    if (workspaceId == null || workspaceId.isEmpty) {
+      return List.unmodifiable(_incomeSources);
+    }
+    return _incomeSources.where((s) => s.workspaceId == null || s.workspaceId == workspaceId).toList();
+  }
+
+  void upsertIncomeSource(IncomeSource source) {
+    final idx = _incomeSources.indexWhere((s) => s.id == source.id);
+    if (idx >= 0) {
+      _incomeSources[idx] = source;
+    } else {
+      _incomeSources.add(source);
+    }
+    _notify();
+  }
+
+  void deleteIncomeSource(String id) {
+    _incomeSources.removeWhere((s) => s.id == id);
+    _notify();
+  }
 
   // --- Tasks ---
   List<Task> getTasks({String? workspaceId}) {
@@ -609,32 +677,88 @@ class LocalDatabase {
     final alert = _smsDebitAlerts[idx];
 
     final txId = _uuid.v4();
-    final movements = <LedgerMovement>[
-      // Debit Category (Expense): +kobo
-      LedgerMovement(
-        id: _uuid.v4(),
-        transactionId: txId,
-        categoryId: categoryId,
-        amountKobo: alert.amountKobo,
-      ),
-      // Credit Asset Account: -kobo
-      LedgerMovement(
-        id: _uuid.v4(),
-        transactionId: txId,
-        accountId: accountId,
-        amountKobo: -alert.amountKobo,
-      ),
-    ];
+    final movements = <LedgerMovement>[];
 
-    postTransaction(
-      type: TransactionType.expense,
-      effectiveAt: alert.receivedAt,
-      memo: '[SMS Debit] ${alert.memo} (${alert.sender})',
-      movements: movements,
-    );
+    if (alert.isDebit) {
+      // Expense: Category +kobo (Debit Expense), Asset Account -kobo (Credit Asset)
+      movements.add(
+        LedgerMovement(
+          id: _uuid.v4(),
+          transactionId: txId,
+          categoryId: categoryId,
+          amountKobo: alert.amountKobo,
+        ),
+      );
+      movements.add(
+        LedgerMovement(
+          id: _uuid.v4(),
+          transactionId: txId,
+          accountId: accountId,
+          amountKobo: -alert.amountKobo,
+        ),
+      );
+
+      postTransaction(
+        type: TransactionType.expense,
+        effectiveAt: alert.receivedAt,
+        memo: '[SMS Debit Alert] ${alert.memo} (${alert.sender})',
+        movements: movements,
+      );
+    } else {
+      // Income (Credit Inflow): Asset Account +kobo (Debit Asset), Category -kobo (Credit Income)
+      movements.add(
+        LedgerMovement(
+          id: _uuid.v4(),
+          transactionId: txId,
+          accountId: accountId,
+          amountKobo: alert.amountKobo,
+        ),
+      );
+      movements.add(
+        LedgerMovement(
+          id: _uuid.v4(),
+          transactionId: txId,
+          categoryId: categoryId,
+          amountKobo: -alert.amountKobo,
+        ),
+      );
+
+      postTransaction(
+        type: TransactionType.income,
+        effectiveAt: alert.receivedAt,
+        memo: '[SMS Credit Inflow] ${alert.memo} (${alert.sender})',
+        movements: movements,
+      );
+    }
 
     _smsDebitAlerts[idx] = alert.copyWith(isProcessed: true);
     _notify();
+  }
+
+  /// Smart approval: auto-resolves account and category if not specified
+  void approveSmsAlert(
+    String alertId, {
+    String? targetAccountId,
+    String? targetCategoryId,
+  }) {
+    final idx = _smsDebitAlerts.indexWhere((a) => a.id == alertId);
+    if (idx < 0) return;
+    final alert = _smsDebitAlerts[idx];
+
+    final resolvedAccount = targetAccountId ??
+        _financialAccounts.firstWhere((a) => a.accountType == AccountType.bank, orElse: () => _financialAccounts.first).id;
+
+    final resolvedCategory = targetCategoryId ??
+        alert.suggestedCategoryId ??
+        (alert.isDebit
+            ? _financialCategories.firstWhere((c) => c.type == 'expense', orElse: () => _financialCategories.first).id
+            : _financialCategories.firstWhere((c) => c.type == 'income', orElse: () => _financialCategories.first).id);
+
+    processSmsDebitAlert(
+      alertId,
+      accountId: resolvedAccount,
+      categoryId: resolvedCategory,
+    );
   }
 
   void dismissSmsDebitAlert(String alertId) {
@@ -644,6 +768,8 @@ class LocalDatabase {
       _notify();
     }
   }
+
+  void dismissSmsAlert(String alertId) => dismissSmsDebitAlert(alertId);
 
   // --- Recovery Actions ---
   List<RecoveryAction> getActiveRecoveryActions() {
@@ -859,6 +985,7 @@ class LocalDatabase {
     _ledgerTransactions.clear();
     _ledgerMovements.clear();
     _budgets.clear();
+    _incomeSources.clear();
     _bills.clear();
     _savingsGoals.clear();
     _books.clear();

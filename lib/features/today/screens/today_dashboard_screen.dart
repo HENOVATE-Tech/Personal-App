@@ -4,7 +4,6 @@ import '../../../core/database/local_database.dart';
 import '../../../core/database/schema_models.dart';
 import '../../../core/utils/date_utils.dart';
 import '../../../core/utils/money_formatter.dart';
-import '../../../core/utils/recurrence_engine.dart';
 import '../../../core/widgets/privacy_blur_wrapper.dart';
 import '../../../core/widgets/workspace_selector.dart';
 import '../../recovery/services/commitment_recovery_engine.dart';
@@ -19,6 +18,9 @@ import '../../settings/screens/settings_screen.dart';
 import '../../notes/screens/notes_workstation_screen.dart';
 import '../../bible/screens/bible_reader_screen.dart';
 import '../../../core/services/api_service.dart';
+import '../../more/screens/more_hub_screen.dart';
+import '../../finance/screens/budget_management_screen.dart';
+import '../../../core/services/sms_ingestion_service.dart';
 
 class TodayDashboardScreen extends StatefulWidget {
   final VoidCallback onQuickExpense;
@@ -37,14 +39,23 @@ class TodayDashboardScreen extends StatefulWidget {
 class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
   String _selectedWorkspaceId = '';
   bool _lowEnergyMode = false;
+  late final PageController _financialPageController;
+  int _currentFinancialSlide = 0;
 
   @override
   void initState() {
     super.initState();
+    _financialPageController = PageController();
     // Fire non-blocking background REST API sync with Render on startup
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ApiService.instance.syncAll(LocalDatabase.instance);
     });
+  }
+
+  @override
+  void dispose() {
+    _financialPageController.dispose();
+    super.dispose();
   }
 
   @override
@@ -59,22 +70,24 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
         // 1. Filter Tasks
         final allTasks = db.getTasks(workspaceId: _selectedWorkspaceId);
         final topPriorities = allTasks.where((t) => t.isTopPriority).take(3).toList();
-        final pendingTasks = allTasks.where((t) => t.status != TaskStatus.completed).toList();
-
         // 2. Recovery Cards
         final recoveryCards = CommitmentRecoveryEngine.instance.evaluateCommitments(referenceDate: now);
 
-        // 3. Fasting Status
-        final bool isMonday = now.weekday == DateTime.monday;
-        final bool isFriday = now.weekday == DateTime.friday;
-        final bool isLastWeekend = RecurrenceEngine.isLastFridayOfMonth(now) ||
-            now.weekday == DateTime.saturday ||
-            now.weekday == DateTime.sunday;
-        final bool isFastingDay = isMonday || isFriday || isLastWeekend;
-
-        // 4. Financial Calculations
+        // 4. Financial Calculations & Slides
+        final currentPeriod = '${now.year}-${now.month.toString().padLeft(2, '0')}';
         final accounts = db.getFinancialAccounts();
         final totalBalanceKobo = accounts.fold<int>(0, (sum, a) => sum + a.balanceKobo);
+        final budgets = db.getBudgets(periodMonthYear: currentPeriod);
+        final totalBudgetKobo = budgets.fold<int>(0, (sum, b) => sum + b.allocatedKobo);
+        final totalSpentKobo = db.getMonthTotalExpenseKobo(periodMonthYear: currentPeriod);
+        final remainingAllowanceKobo = (totalBudgetKobo - totalSpentKobo).clamp(0, double.infinity).toInt();
+
+        final incomeSources = db.getIncomeSources(workspaceId: _selectedWorkspaceId);
+        final totalExpectedIncomeKobo = incomeSources.fold<int>(0, (s, i) => s + i.expectedMonthlyKobo);
+        final totalReceivedIncomeKobo = incomeSources.fold<int>(0, (s, i) => s + i.receivedKobo);
+        final effectiveDisplayName = profile.displayName == 'Owner' || profile.displayName.isEmpty
+            ? 'Henry Adeleke'
+            : profile.displayName;
 
         return Scaffold(
           backgroundColor: AppTheme.background,
@@ -113,7 +126,7 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
                                     ),
                                   ),
                                   Text(
-                                    profile.displayName,
+                                    effectiveDisplayName,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
                                       fontSize: 18,
@@ -154,7 +167,7 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
                   ),
                 ),
 
-                // Hero Sunset Mesh Gradient Card (Exact visual match from reference image)
+                // Hero Sunset Mesh Gradient Card with Swipeable Financial Carousel
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
@@ -177,7 +190,7 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          profile.displayName,
+                          effectiveDisplayName,
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 26,
@@ -187,157 +200,172 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Glassmorphic translucent badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.white.withOpacity(0.3)),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
+                        // Swipeable Financial Carousel (Available Funds, Budget vs Spent, Left to Spend, Income Streams)
+                        SizedBox(
+                          height: 156,
+                          child: PageView(
+                            controller: _financialPageController,
+                            onPageChanged: (idx) => setState(() => _currentFinancialSlide = idx),
                             children: [
-                              Container(
-                                width: 22,
-                                height: 22,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFFFFCC80),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    '${pendingTasks.length}',
-                                    style: const TextStyle(
-                                      color: Color(0xFFE65100),
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Flexible(
-                                child: Text(
-                                  isFastingDay
-                                      ? 'Fasting active • ${pendingTasks.length} pending'
-                                      : 'You have ${pendingTasks.length} claims in progress',
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              const Icon(Icons.chevron_right, color: Colors.white, size: 16),
+                              _buildSlideAvailableFunds(totalBalanceKobo),
+                              _buildSlideBudgetVsSpent(totalSpentKobo, totalBudgetKobo, currentPeriod),
+                              _buildSlideRemainingAllowance(remainingAllowanceKobo, totalBudgetKobo),
+                              _buildSlideIncomeStreams(incomeSources, totalExpectedIncomeKobo, totalReceivedIncomeKobo),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 12),
 
-                        // Embedded Crisp White Floating Card (from reference UI)
-                        Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(24),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.06),
-                                blurRadius: 16,
-                                offset: const Offset(0, 8),
+                        // Carousel Dots Indicator
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(4, (i) {
+                            final isChosen = i == _currentFinancialSlide;
+                            return AnimatedContainer(
+                              duration: const Duration(milliseconds: 250),
+                              margin: const EdgeInsets.symmetric(horizontal: 3),
+                              width: isChosen ? 20 : 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: isChosen ? Colors.white : Colors.white38,
+                                borderRadius: BorderRadius.circular(3),
                               ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Available Liquid Funds',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w700,
-                                            color: AppTheme.textPrimary,
-                                          ),
-                                        ),
-                                        SizedBox(height: 4),
-                                        Row(
-                                          children: [
-                                            Icon(Icons.check_circle, size: 12, color: Color(0xFF10B981)),
-                                            SizedBox(width: 4),
-                                            Flexible(
-                                              child: Text(
-                                                'Double-entry ledger verified',
-                                                overflow: TextOverflow.ellipsis,
-                                                style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  SizedBox(width: 8),
-                                  Icon(Icons.receipt_long, color: AppTheme.textTertiary, size: 28),
-                                ],
-                              ),
-                              const SizedBox(height: 18),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: PrivacyBlurWrapper(
-                                      child: FittedBox(
-                                        fit: BoxFit.scaleDown,
-                                        alignment: Alignment.centerLeft,
-                                        child: Text(
-                                          MoneyFormatter.formatKobo(totalBalanceKobo),
-                                          style: const TextStyle(
-                                            fontSize: 22,
-                                            fontWeight: FontWeight.w900,
-                                            color: AppTheme.textPrimary,
-                                            letterSpacing: -0.5,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppTheme.darkCharcoal,
-                                      foregroundColor: Colors.white,
-                                      elevation: 0,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                    ),
-                                    onPressed: widget.onQuickExpense,
-                                    child: const Text('Quick Expense', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
+                            );
+                          }),
                         ),
                       ],
                     ),
                   ),
                 ),
 
-                // Workspace Switcher Filter
+                // Compact Quick Shortcuts Directly Under Hero Card (Exactly requested 6 items)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Shortcuts & Hubs',
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.textPrimary,
+                            letterSpacing: -0.2,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const MoreHubScreen()),
+                          );
+                        },
+                        child: const Text(
+                          'View All →',
+                          style: TextStyle(
+                            color: AppTheme.coralPrimary,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final itemWidth = (constraints.maxWidth - 12) / 2;
+                      return Wrap(
+                        spacing: 12,
+                        runSpacing: 10,
+                        children: [
+                          _buildCompactShortcutCard(
+                            context,
+                            width: itemWidth,
+                            title: 'Omni Notes',
+                            subtitle: 'Prophecy, Bible & Vision',
+                            icon: Icons.edit_note_rounded,
+                            color: const Color(0xFF8B5CF6),
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const NotesWorkstationScreen()),
+                            ),
+                          ),
+                          _buildCompactShortcutCard(
+                            context,
+                            width: itemWidth,
+                            title: 'Devotions & Disciples',
+                            subtitle: 'Prayer, Scripture & Fasting',
+                            icon: Icons.auto_stories_rounded,
+                            color: const Color(0xFF6366F1),
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const SpiritualOverviewScreen()),
+                            ),
+                          ),
+                          _buildCompactShortcutCard(
+                            context,
+                            width: itemWidth,
+                            title: 'Lifestyle & Wardrobe',
+                            subtitle: 'Care, Chores & Outfits',
+                            icon: Icons.checkroom_rounded,
+                            color: const Color(0xFF10B981),
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const LifestyleHubScreen()),
+                            ),
+                          ),
+                          _buildCompactShortcutCard(
+                            context,
+                            width: itemWidth,
+                            title: 'Knowledge & Reviews',
+                            subtitle: 'Books, Synthesis & Audits',
+                            icon: Icons.menu_book_rounded,
+                            color: const Color(0xFFF59E0B),
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const ReadingLibraryScreen()),
+                            ),
+                          ),
+                          _buildCompactShortcutCard(
+                            context,
+                            width: itemWidth,
+                            title: 'Health & Sleep',
+                            subtitle: 'Vitals & Night Rest Log',
+                            icon: Icons.bedtime_rounded,
+                            color: const Color(0xFF06B6D4),
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const HealthHubScreen()),
+                            ),
+                          ),
+                          _buildCompactShortcutCard(
+                            context,
+                            width: itemWidth,
+                            title: 'Intelligence & Audit',
+                            subtitle: 'Ledger Verification & Sync',
+                            icon: Icons.insights_rounded,
+                            color: const Color(0xFFEF4444),
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const InsightsScreen()),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // Workspace Switcher Filter (With + Add / Edit Capabilities)
                 WorkspaceSelector(
                   selectedWorkspaceId: _selectedWorkspaceId,
                   onWorkspaceChanged: (id) => setState(() => _selectedWorkspaceId = id),
                 ),
+
+                // Smart SMS Bank Ingestion Section (Tracks both Credit & Debit with approval queue)
+                _buildSmartSmsApprovalSection(context, db),
 
                 // "Services" Horizontal Action Shortcuts (exact match from reference)
                 Padding(
@@ -744,193 +772,20 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
                   }),
                 ],
 
-                // ----------------------------------------------------
-                // ECOSYSTEM WORKSTATIONS (All Hub Modules on Home Dashboard)
-                // ----------------------------------------------------
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 28, 20, 12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Ecosystem Workstations',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                color: AppTheme.textPrimary,
-                                letterSpacing: -0.3,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            const Text(
-                              'Dedicated operational command centers',
-                              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.pastelPeach,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Text(
-                          '9 STATIONS',
-                          style: TextStyle(
-                            color: AppTheme.pastelPeachText,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                    ],
+                const SizedBox(height: 16),
+                Center(
+                  child: TextButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const MoreHubScreen()),
+                      );
+                    },
+                    icon: const Icon(Icons.explore_outlined, size: 16, color: AppTheme.coralPrimary),
+                    label: const Text(
+                      'Explore All Modules in More Hub →',
+                      style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.coralPrimary),
+                    ),
                   ),
-                ),
-
-                // 1. Notes & Revelations Hub (Spiritual, Bible Study, Vision, Professional)
-                _buildWorkstationCard(
-                  context,
-                  badge: 'OMNI NOTES & PROPHECY HUB',
-                  badgeColor: const Color(0xFFF3E8FF),
-                  badgeTextColor: const Color(0xFF6B21A8),
-                  icon: Icons.draw_outlined,
-                  iconGradient: const LinearGradient(colors: [Color(0xFF9333EA), Color(0xFF581C87)]),
-                  title: 'Notes & Revelations Hub',
-                  subtitle: 'Segregated Spiritual (revelations, visions, dreams), Bible Study, Strategy, Professional & Relationships with 1-tap Task conversion',
-                  connectedStatus: '${db.getNotes().length} notes active • ${db.getNotes().where((n) => n.isPinned).length} pinned • Synced',
-                  destination: const NotesWorkstationScreen(),
-                ),
-
-                // Holy Bible & Split Study Workstation
-                _buildWorkstationCard(
-                  context,
-                  badge: 'HOLY SCRIPTURES & EXEGESIS',
-                  badgeColor: const Color(0xFFFAF5FF),
-                  badgeTextColor: const Color(0xFF6B21A8),
-                  icon: Icons.auto_stories,
-                  iconGradient: const LinearGradient(colors: [Color(0xFF6B21A8), Color(0xFF3B0764)]),
-                  title: 'Holy Bible & Split Study Workstation',
-                  subtitle: 'Complete 66-book catalog, offline KJV wisdom themes, split-screen live note study & 1-tap life commitments',
-                  connectedStatus: '66 Books Available • Split Study Mode Ready',
-                  destination: const BibleReaderScreen(),
-                ),
-
-                // 2. Phone Governance & Focus Shield
-                _buildWorkstationCard(
-                  context,
-                  badge: 'DEVICE CONTROL & GOVERNANCE',
-                  badgeColor: const Color(0xFFFEE2E2),
-                  badgeTextColor: const Color(0xFF991B1B),
-                  icon: Icons.security,
-                  iconGradient: const LinearGradient(colors: [Color(0xFFEF4444), Color(0xFFB91C1C)]),
-                  title: 'Phone Governance & Focus Shield',
-                  subtitle: 'Device administrator lockdown, social handles shutdown, emergency siren and quick alert triggers',
-                  connectedStatus: 'Admin Enforcer & Social Blockade Active',
-                  destination: const DeviceGovernanceScreen(),
-                ),
-
-                // 2. Professional Workspaces
-                _buildWorkstationCard(
-                  context,
-                  badge: 'OPERATIONAL WORKSPACES',
-                  badgeColor: const Color(0xFFE0E7FF),
-                  badgeTextColor: const Color(0xFF3730A3),
-                  icon: Icons.business_center,
-                  iconGradient: const LinearGradient(colors: [Color(0xFF4F46E5), Color(0xFF312E81)]),
-                  title: 'Professional Workspaces',
-                  subtitle: 'Segregated Bems Group (COO) & Henovate (Founder) strategic milestones and deliverables',
-                  connectedStatus: '${allTasks.where((t) => t.workspaceId == 'ws-bems-group').length} Bems tasks • ${allTasks.where((t) => t.workspaceId == 'ws-henovate').length} Henovate tasks',
-                  destination: const WorkspacesOverviewScreen(),
-                ),
-
-                // 3. Spiritual Life & Fasting Engine
-                _buildWorkstationCard(
-                  context,
-                  badge: 'DEVOTION & DISCIPLINES',
-                  badgeColor: const Color(0xFFEDE9FE),
-                  badgeTextColor: const Color(0xFF5B21B6),
-                  icon: Icons.church,
-                  iconGradient: const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF6D28D9)]),
-                  title: 'Spiritual Life & Fasting Engine',
-                  subtitle: 'Prayer journal, Scripture passage planner, 3-day fasting schedule engine with zero streak penalties',
-                  connectedStatus: isFastingDay ? 'Fasting Active (6AM–6PM) • Mon/Fri rhythm' : 'Regular rhythm • Next Fast: Friday',
-                  destination: const SpiritualOverviewScreen(),
-                ),
-
-                // 4. Personal Care & Wardrobe
-                _buildWorkstationCard(
-                  context,
-                  badge: 'LIFESTYLE & WARDROBE',
-                  badgeColor: const Color(0xFFFCE7F3),
-                  badgeTextColor: const Color(0xFF9D174D),
-                  icon: Icons.checkroom,
-                  iconGradient: const LinearGradient(colors: [Color(0xFFEC4899), Color(0xFFBE185D)]),
-                  title: 'Personal Care & Wardrobe',
-                  subtitle: 'Daily grooming checklist, weekend chores, Sunday-to-Saturday curated outfit rotation plans',
-                  connectedStatus: '${db.getCareChecklist().where((c) => !c.isCompleted).length} pending routines • ${db.getOutfitPlans().length} outfits planned',
-                  destination: const LifestyleHubScreen(),
-                ),
-
-                // 5. Reading Library & Checklists
-                _buildWorkstationCard(
-                  context,
-                  badge: 'KNOWLEDGE & REVIEWS',
-                  badgeColor: const Color(0xFFFEF3C7),
-                  badgeTextColor: const Color(0xFF92400E),
-                  icon: Icons.menu_book,
-                  iconGradient: const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFB45309)]),
-                  title: 'Reading Library & Checklists',
-                  subtitle: 'Curated books library, active study synthesis, pre-deliverable review checklist for clients',
-                  connectedStatus: '${db.getBooks().length} active books in library • Deliverable checklist ready',
-                  destination: const ReadingLibraryScreen(),
-                ),
-
-                // 6. Health, Sleep & Character
-                _buildWorkstationCard(
-                  context,
-                  badge: 'HEALTH & SLEEP',
-                  badgeColor: const Color(0xFFD1FAE5),
-                  badgeTextColor: const Color(0xFF065F46),
-                  icon: Icons.favorite,
-                  iconGradient: const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF047857)]),
-                  title: 'Health, Relationships & Sleep',
-                  subtitle: 'Cross-midnight sleep validator, wellbeing score, relational character logs & health tracking',
-                  connectedStatus: '${db.getSleepLogs().length} sleep logs recorded • Bedtime validation active',
-                  destination: const HealthHubScreen(),
-                ),
-
-                // 7. Intelligence & Analytics
-                _buildWorkstationCard(
-                  context,
-                  badge: 'INTELLIGENCE & AUDITS',
-                  badgeColor: const Color(0xFFCCFBF1),
-                  badgeTextColor: const Color(0xFF115E59),
-                  icon: Icons.insights,
-                  iconGradient: const LinearGradient(colors: [Color(0xFF14B8A6), Color(0xFF0F766E)]),
-                  title: 'Reviews & Insights Analytics',
-                  subtitle: 'Sunday weekly review cadence, month-end balance verification, authentic trend analytics',
-                  connectedStatus: 'Double-entry ledger verified • Weekly cadence active',
-                  destination: const InsightsScreen(),
-                ),
-
-                // 8. Render REST API & Cloud Storage
-                _buildWorkstationCard(
-                  context,
-                  badge: 'CLOUD & API BACKEND',
-                  badgeColor: const Color(0xFFDBEAFE),
-                  badgeTextColor: const Color(0xFF1E40AF),
-                  icon: Icons.cloud_done,
-                  iconGradient: const LinearGradient(colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)]),
-                  title: 'Render REST API & Cloud Storage',
-                  subtitle: 'Live REST API at ${ApiService.instance.baseUrl} connected to Supabase PostgreSQL',
-                  connectedStatus: '21 tables synchronized • TLS encryption • Offline-first',
-                  destination: const SettingsScreen(),
                 ),
               ],
             ),
@@ -941,34 +796,403 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
     );
   }
 
-  Widget _buildWorkstationCard(
-    BuildContext context, {
-    required String badge,
-    required Color badgeColor,
-    required Color badgeTextColor,
-    required IconData icon,
-    required Gradient iconGradient,
-    required String title,
-    required String subtitle,
-    required String connectedStatus,
-    required Widget destination,
-  }) {
+  // --- Financial Hero Carousel Slides ---
+
+  Widget _buildSlideAvailableFunds(int totalBalanceKobo) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        boxShadow: AppTheme.softCardShadow,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(24),
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => destination),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Available Liquid Funds',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Icon(Icons.check_circle, size: 12, color: Color(0xFF10B981)),
+                        SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            'Double-entry ledger verified',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.account_balance_wallet_outlined, color: AppTheme.textTertiary, size: 26),
+            ],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: PrivacyBlurWrapper(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      MoneyFormatter.formatKobo(totalBalanceKobo),
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.textPrimary,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.darkCharcoal,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
+                onPressed: widget.onQuickExpense,
+                child: const Text('Quick Expense', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSlideBudgetVsSpent(int totalSpentKobo, int totalBudgetKobo, String currentPeriod) {
+    final isOver = totalSpentKobo > totalBudgetKobo && totalBudgetKobo > 0;
+    final pct = totalBudgetKobo > 0 ? ((totalSpentKobo / totalBudgetKobo) * 100).toInt() : 0;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Total Spent vs Budget',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'Period • $currentPeriod',
+                    style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isOver ? const Color(0xFFFEE2E2) : const Color(0xFFE0F2FE),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  isOver ? 'OVER BUDGET' : '$pct% SPENT',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: isOver ? Colors.red : const Color(0xFF0369A1),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  PrivacyBlurWrapper(
+                    child: Text(
+                      'Spent: ${MoneyFormatter.formatKobo(totalSpentKobo)}',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
+                    ),
+                  ),
+                  PrivacyBlurWrapper(
+                    child: Text(
+                      'Budget: ${MoneyFormatter.formatKobo(totalBudgetKobo)}',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: totalBudgetKobo > 0 ? (totalSpentKobo / totalBudgetKobo).clamp(0.0, 1.0) : 0.0,
+                  minHeight: 8,
+                  backgroundColor: const Color(0xFFF3F4F6),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    isOver ? Colors.red : AppTheme.coralPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSlideRemainingAllowance(int remainingKobo, int totalBudgetKobo) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Amount Left to Spend',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  SizedBox(height: 3),
+                  Text(
+                    'Remaining Discretionary Allowance',
+                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                  ),
+                ],
+              ),
+              Icon(Icons.savings_outlined, color: Color(0xFF10B981), size: 26),
+            ],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: PrivacyBlurWrapper(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      MoneyFormatter.formatKobo(remainingKobo),
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: remainingKobo > 0 ? const Color(0xFF047857) : Colors.red,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFF3F4F6),
+                  foregroundColor: AppTheme.darkCharcoal,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const BudgetManagementScreen()),
+                  );
+                },
+                child: const Text('Budgets', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSlideIncomeStreams(List<IncomeSource> sources, int totalExpectedKobo, int totalReceivedKobo) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Income Streams & Targets',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '${sources.length} Active Revenue Sources',
+                    style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                  ),
+                ],
+              ),
+              const Icon(Icons.trending_up, color: Color(0xFF059669), size: 26),
+            ],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    PrivacyBlurWrapper(
+                      child: Text(
+                        'Received: ${MoneyFormatter.formatKobo(totalReceivedKobo)}',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF065F46)),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    PrivacyBlurWrapper(
+                      child: Text(
+                        'Target: ${MoneyFormatter.formatKobo(totalExpectedKobo)}',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF10B981),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const BudgetManagementScreen()),
+                  );
+                },
+                child: const Text('Income Hub', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- Compact Shortcut Card ---
+
+  Widget _buildCompactShortcutCard(
+    BuildContext context, {
+    required double width,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return SizedBox(
+      width: width,
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        elevation: 0,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFF3F4F6)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.02),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -976,111 +1200,373 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: badgeColor,
-                        borderRadius: BorderRadius.circular(8),
+                        color: color.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Text(
-                        badge,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          color: badgeTextColor,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
+                      child: Icon(icon, color: color, size: 20),
                     ),
-                    const Icon(Icons.arrow_forward_ios, size: 12, color: AppTheme.textSecondary),
+                    const Icon(Icons.arrow_forward_ios, size: 10, color: AppTheme.textTertiary),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(
-                        gradient: iconGradient,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.12),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Icon(icon, color: Colors.white, size: 22),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                              color: AppTheme.textPrimary,
-                              letterSpacing: -0.3,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            subtitle,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textSecondary,
-                              height: 1.3,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 10),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textPrimary,
+                    letterSpacing: -0.2,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppTheme.textSecondary,
+                    height: 1.2,
                   ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Color(0xFF10B981),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          connectedStatus,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF334155),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  // --- Smart SMS Approval Queue (Credit + Debit Ingestion) ---
+
+  Widget _buildSmartSmsApprovalSection(BuildContext context, LocalDatabase db) {
+    final pending = db.getPendingSmsDebitAlerts();
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: pending.isNotEmpty ? const Color(0xFFFFCC80) : const Color(0xFFE5E7EB),
+          width: pending.isNotEmpty ? 1.5 : 1.0,
+        ),
+        boxShadow: AppTheme.softCardShadow,
+      ),
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: pending.isNotEmpty ? const Color(0xFFFFF7ED) : const Color(0xFFF3F4F6),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.sms_outlined,
+                        size: 18,
+                        color: pending.isNotEmpty ? const Color(0xFFEA580C) : AppTheme.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Flexible(
+                      child: Text(
+                        'Smart SMS Tracker',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.textPrimary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (pending.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEA580C),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${pending.length} PENDING',
+                          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              TextButton.icon(
+                onPressed: () => _showSimulateSmsDialog(context, db),
+                icon: const Icon(Icons.flash_on, size: 14, color: AppTheme.coralPrimary),
+                label: const Text(
+                  'Test Alert',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.coralPrimary),
+                ),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ],
+          ),
+          if (pending.isEmpty) ...[
+            const SizedBox(height: 8),
+            const Text(
+              'Tracking live Credit & Debit banking alerts (GTB, Access, Zenith, Kuda). Tap "Test Alert" to simulate an SMS.',
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+            ),
+          ] else ...[
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            ...pending.map((alert) {
+              final isCredit = !alert.isDebit;
+              const isCreditColor = Color(0xFF10B981);
+              const isDebitColor = Color(0xFFEF4444);
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF9FAFB),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFF3F4F6)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              isCredit ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
+                              size: 16,
+                              color: isCredit ? isCreditColor : isDebitColor,
+                            ),
+                            const SizedBox(width: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: isCredit ? const Color(0xFFE8F5E9) : const Color(0xFFFEE2E2),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                isCredit ? 'CREDIT INFLOW' : 'DEBIT EXPENSE',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                  color: isCredit ? const Color(0xFF166534) : const Color(0xFF991B1B),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              alert.sender,
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          '${isCredit ? "+" : "-"}${MoneyFormatter.formatKobo(alert.amountKobo)}',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            color: isCredit ? isCreditColor : isDebitColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      alert.memo,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Acct: ${alert.accountLast4 != null ? "***${alert.accountLast4}" : "GTBank"} • Suggestion: ${isCredit ? "Income" : "Expense"} ledger account',
+                      style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            db.dismissSmsAlert(alert.id);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Alert disapproved and dismissed.')),
+                            );
+                          },
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.red.shade700,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text('✕ Disapprove', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () {
+                            db.approveSmsAlert(alert.id);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('✓ Approved ${MoneyFormatter.formatKobo(alert.amountKobo)} posted to Verified Ledger!'),
+                                backgroundColor: const Color(0xFF10B981),
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF10B981),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text('✓ Approve & Post', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _showSimulateSmsDialog(BuildContext context, LocalDatabase db) {
+    final smsCtrl = TextEditingController(
+      text: 'Credit: Acct: 0123***456 Amt: NGN 350,000.00 Desc: Henovate Tech Retainer Inflow',
+    );
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: const Row(
+            children: [
+              Icon(Icons.sms_rounded, color: AppTheme.coralPrimary),
+              SizedBox(width: 8),
+              Text('Simulate SMS Alert', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Paste a bank SMS or choose a test preset to verify the Credit/Debit parser & approval queue:',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: smsCtrl,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    hintText: 'Enter bank SMS text...',
+                    filled: true,
+                    fillColor: const Color(0xFFF9FAFB),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text('Quick Test Presets:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    ActionChip(
+                      label: const Text('GTB Credit ₦350,000', style: TextStyle(fontSize: 11)),
+                      backgroundColor: const Color(0xFFE8F5E9),
+                      onPressed: () {
+                        smsCtrl.text = 'Credit: Acct: 0123***456 Amt: NGN 350,000.00 Desc: Henovate Tech Retainer Inflow';
+                      },
+                    ),
+                    ActionChip(
+                      label: const Text('Access Debit ₦18,500', style: TextStyle(fontSize: 11)),
+                      backgroundColor: const Color(0xFFFEE2E2),
+                      onPressed: () {
+                        smsCtrl.text = 'Debit: Acct: 0123***456 Amt: NGN 18,500.00 Desc: POS 104234 Ebeano Supermarket Lekki';
+                      },
+                    ),
+                    ActionChip(
+                      label: const Text('Zenith Credit ₦1,200,000', style: TextStyle(fontSize: 11)),
+                      backgroundColor: const Color(0xFFE8F5E9),
+                      onPressed: () {
+                        smsCtrl.text = 'Your Acct 102***890 has been credited with NGN 1,200,000.00 from Bems Group Exec Salary';
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.coralPrimary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () {
+                final raw = smsCtrl.text.trim();
+                if (raw.isEmpty) return;
+                final alert = SmsIngestionService.parseDebitAlert(
+                  sender: 'GTBank',
+                  body: raw,
+                  timestamp: DateTime.now(),
+                );
+                if (alert != null) {
+                  db.addSmsDebitAlert(alert);
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Captured ${alert.isDebit ? "Debit" : "Credit"} alert for ${MoneyFormatter.formatKobo(alert.amountKobo)}. Ready for approval!'),
+                      backgroundColor: alert.isDebit ? Colors.orange.shade800 : const Color(0xFF10B981),
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Could not parse bank amount from SMS text.')),
+                  );
+                }
+              },
+              child: const Text('Capture SMS'),
+            ),
+          ],
+        );
+      },
     );
   }
 

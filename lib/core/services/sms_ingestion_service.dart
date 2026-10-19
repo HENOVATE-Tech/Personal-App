@@ -19,8 +19,17 @@ class SmsIngestionService {
   }) {
     final lower = body.toLowerCase();
 
-    // 1. Check if message is a debit alert
-    final isDebit = lower.contains('debit') ||
+    // 1. Check if message is a debit or credit alert
+    final isCredit = lower.contains('credit') ||
+        lower.contains(' cr ') ||
+        lower.contains('cr:') ||
+        lower.contains(' cr|') ||
+        lower.contains('received from') ||
+        lower.contains('credited with') ||
+        lower.contains('inward transfer') ||
+        lower.contains('deposited');
+
+    final isDebit = !isCredit && (lower.contains('debit') ||
         lower.contains(' dr ') ||
         lower.contains('dr:') ||
         lower.contains(' dr|') ||
@@ -30,13 +39,7 @@ class SmsIngestionService {
         lower.contains('paid') ||
         lower.contains('withdrawn') ||
         lower.contains('purchase') ||
-        lower.contains('transferred to');
-
-    final isCredit = lower.contains('credit') ||
-        lower.contains(' cr ') ||
-        lower.contains('cr:') ||
-        lower.contains('received from') ||
-        lower.contains('deposited');
+        lower.contains('transferred to'));
 
     if (!isDebit && !isCredit) {
       return null; // Not a banking alert
@@ -45,9 +48,9 @@ class SmsIngestionService {
     // 2. Extract Amount
     int? amountKobo;
 
-    // Pattern 1: (NGN|₦|Amt|Amount|Debit of|spent|paid)\s*:?\s*(?:NGN|₦)?\s*([0-9,]+\.[0-9]{2}|[0-9,]+)
+    // Pattern 1: (NGN|₦|Amt|Amount|Debit of|Credit of|spent|paid|received)\s*:?\s*(?:NGN|₦)?\s*([0-9,]+\.[0-9]{2}|[0-9,]+)
     final amountRegex1 = RegExp(
-      r'(?:NGN|₦|Amt|Amount|Debit of|spent|paid)\s*[:\-]?\s*(?:NGN|₦)?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)',
+      r'(?:NGN|₦|Amt|Amount|Debit of|Credit of|spent|paid|received)\s*[:\-]?\s*(?:NGN|₦)?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)',
       caseSensitive: false,
     );
     // Pattern 2: ([0-9,]+\.[0-9]{2})\s*(?:DR|NGN|₦)
@@ -139,6 +142,15 @@ class SmsIngestionService {
 
   static String _suggestCategory(String memo) {
     final lower = memo.toLowerCase();
+    if (lower.contains('salary') || lower.contains('payroll') || lower.contains('bems group') || lower.contains('dividends')) {
+      return 'cat-income-salary';
+    }
+    if (lower.contains('consulting') || lower.contains('henovate') || lower.contains('contract') || lower.contains('retainer')) {
+      return 'cat-income-consulting';
+    }
+    if (lower.contains('interest') || lower.contains('dividend') || lower.contains('investment') || lower.contains('roi')) {
+      return 'cat-income-investment';
+    }
     if (lower.contains('uber') ||
         lower.contains('bolt') ||
         lower.contains('fuel') ||
@@ -256,18 +268,21 @@ class SmsIngestionService {
     String sender = 'GTBank',
     int amountKobo = 1500000, // ₦15,000.00
     String memo = 'POS PURCHASE - MOBIL FILLING STATION',
-    String? categoryId = 'cat-transport',
+    String? categoryId,
+    bool isDebit = true,
   }) {
     final alert = SmsDebitAlert(
       id: _uuid.v4(),
       sender: sender,
-      rawBody: 'Debit: Amt: NGN ${MoneyFormatter.formatKobo(amountKobo).replaceAll('₦', '').trim()} | Acc: 014****567 | Desc: $memo | Date: ${DateTime.now()}',
+      rawBody: isDebit
+          ? 'Debit: Amt: NGN ${MoneyFormatter.formatKobo(amountKobo).replaceAll('₦', '').trim()} | Acc: 014****567 | Desc: $memo | Date: ${DateTime.now()}'
+          : 'Credit: Amt: NGN ${MoneyFormatter.formatKobo(amountKobo).replaceAll('₦', '').trim()} | Acc: 014****567 | Desc: $memo | Date: ${DateTime.now()}',
       amountKobo: amountKobo,
       accountLast4: '4567',
       memo: memo,
-      isDebit: true,
+      isDebit: isDebit,
       receivedAt: DateTime.now(),
-      suggestedCategoryId: categoryId ?? 'cat-transport',
+      suggestedCategoryId: categoryId ?? (isDebit ? 'cat-transport' : 'cat-income-consulting'),
     );
 
     LocalDatabase.instance.addSmsDebitAlert(alert);

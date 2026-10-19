@@ -17,7 +17,7 @@ class UserProfile {
 
   const UserProfile({
     required this.id,
-    this.displayName = 'Henry',
+    this.displayName = 'Henry Adeleke',
     this.fullName = 'Henry Solomon Adeleke',
     this.locale = 'en_NG',
     this.timezone = 'Africa/Lagos',
@@ -85,6 +85,58 @@ class Workspace {
     this.isDefault = false,
     this.isArchived = false,
   });
+
+  Workspace copyWith({
+    String? name,
+    String? type,
+    int? colorValue,
+    bool? isDefault,
+    bool? isArchived,
+  }) {
+    return Workspace(
+      id: id,
+      name: name ?? this.name,
+      type: type ?? this.type,
+      colorValue: colorValue ?? this.colorValue,
+      isDefault: isDefault ?? this.isDefault,
+      isArchived: isArchived ?? this.isArchived,
+    );
+  }
+}
+
+class IncomeSource {
+  final String id;
+  final String name;
+  final String? accountId;
+  final int expectedMonthlyKobo;
+  final int receivedKobo;
+  final String? workspaceId;
+
+  const IncomeSource({
+    required this.id,
+    required this.name,
+    this.accountId,
+    required this.expectedMonthlyKobo,
+    this.receivedKobo = 0,
+    this.workspaceId,
+  });
+
+  IncomeSource copyWith({
+    String? name,
+    String? accountId,
+    int? expectedMonthlyKobo,
+    int? receivedKobo,
+    String? workspaceId,
+  }) {
+    return IncomeSource(
+      id: id,
+      name: name ?? this.name,
+      accountId: accountId ?? this.accountId,
+      expectedMonthlyKobo: expectedMonthlyKobo ?? this.expectedMonthlyKobo,
+      receivedKobo: receivedKobo ?? this.receivedKobo,
+      workspaceId: workspaceId ?? this.workspaceId,
+    );
+  }
 }
 
 enum TaskStatus {
@@ -524,6 +576,8 @@ class SmsDebitAlert {
     this.isProcessed = false,
     this.isIgnored = false,
   });
+
+  bool get isCredit => !isDebit;
 
   SmsDebitAlert copyWith({
     bool? isProcessed,

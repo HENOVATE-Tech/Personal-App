@@ -282,6 +282,140 @@ class _BudgetManagementScreenState extends State<BudgetManagementScreen> {
     );
   }
 
+  void _openAddOrEditIncomeSourceDialog({IncomeSource? existing}) {
+    final nameCtrl = TextEditingController(text: existing?.name ?? '');
+    final expectedCtrl = TextEditingController(
+      text: existing != null ? (existing.expectedMonthlyKobo / 100).toStringAsFixed(0) : '',
+    );
+    final receivedCtrl = TextEditingController(
+      text: existing != null ? (existing.receivedKobo / 100).toStringAsFixed(0) : '0',
+    );
+    final accounts = LocalDatabase.instance.getFinancialAccounts();
+    final workspaces = LocalDatabase.instance.getWorkspaces();
+
+    String selectedAccountId = existing?.accountId ?? (accounts.isNotEmpty ? accounts.first.id : 'acc-gtb');
+    String? selectedWorkspaceId = existing?.workspaceId;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              title: Row(
+                children: [
+                  const Icon(Icons.trending_up, color: Color(0xFF10B981)),
+                  const SizedBox(width: 8),
+                  Text(
+                    existing == null ? 'Add Income Stream' : 'Edit Income Stream',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Income Source Name',
+                        hintText: 'e.g. Consulting, Executive Salary, Dividends',
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: expectedCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Monthly Target / Budget (₦)',
+                        hintText: 'e.g. 500,000',
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: receivedCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Received This Month (₦)',
+                        hintText: 'e.g. 250,000',
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text('Destination Account', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                    const SizedBox(height: 4),
+                    DropdownButtonFormField<String>(
+                      value: selectedAccountId,
+                      items: accounts.map((a) => DropdownMenuItem(value: a.id, child: Text(a.name))).toList(),
+                      onChanged: (val) {
+                        if (val != null) setDialogState(() => selectedAccountId = val);
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    const Text('Workspace Link (Optional)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                    const SizedBox(height: 4),
+                    DropdownButtonFormField<String?>(
+                      value: selectedWorkspaceId,
+                      items: [
+                        const DropdownMenuItem(value: null, child: Text('All / Personal')),
+                        ...workspaces.map((w) => DropdownMenuItem(value: w.id, child: Text(w.name))),
+                      ],
+                      onChanged: (val) {
+                        setDialogState(() => selectedWorkspaceId = val);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                if (existing != null)
+                  TextButton(
+                    onPressed: () {
+                      LocalDatabase.instance.deleteIncomeSource(existing.id);
+                      Navigator.pop(ctx);
+                    },
+                    child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                  ),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF10B981),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () {
+                    final name = nameCtrl.text.trim();
+                    if (name.isEmpty) return;
+                    final expKobo = MoneyFormatter.parseToKobo(expectedCtrl.text);
+                    final recKobo = MoneyFormatter.parseToKobo(receivedCtrl.text);
+
+                    final src = IncomeSource(
+                      id: existing?.id ?? 'inc-${const Uuid().v4().substring(0, 8)}',
+                      name: name,
+                      accountId: selectedAccountId,
+                      expectedMonthlyKobo: expKobo,
+                      receivedKobo: recKobo,
+                      workspaceId: selectedWorkspaceId,
+                    );
+
+                    LocalDatabase.instance.upsertIncomeSource(src);
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text('Save Source'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<void>(
@@ -295,21 +429,40 @@ class _BudgetManagementScreenState extends State<BudgetManagementScreen> {
         final unnecessarySpendKobo = db.getUnnecessarySpendKobo(periodMonthYear: _currentPeriod);
         final overspendingBudgets = db.getOverspendingBudgets(periodMonthYear: _currentPeriod);
 
-        return Scaffold(
-          backgroundColor: AppTheme.background,
-          appBar: AppBar(
-            title: const Text('Budgets & Governance'),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.add, color: AppTheme.coralPrimary),
-                tooltip: 'Add Category',
-                onPressed: _openAddCategoryDialog,
+        return DefaultTabController(
+          length: 2,
+          child: Scaffold(
+            backgroundColor: AppTheme.background,
+            appBar: AppBar(
+              title: const Text('Budgets & Income Streams'),
+              bottom: const TabBar(
+                labelColor: AppTheme.coralPrimary,
+                unselectedLabelColor: AppTheme.textSecondary,
+                indicatorColor: AppTheme.coralPrimary,
+                tabs: [
+                  Tab(text: 'Expense Budgets'),
+                  Tab(text: 'Income Streams'),
+                ],
               ),
-            ],
-          ),
-          body: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
-            children: [
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.add_chart, color: Color(0xFF10B981)),
+                  tooltip: 'Add Income Stream',
+                  onPressed: () => _openAddOrEditIncomeSourceDialog(),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add, color: AppTheme.coralPrimary),
+                  tooltip: 'Add Expense Category',
+                  onPressed: _openAddCategoryDialog,
+                ),
+              ],
+            ),
+            body: TabBarView(
+              children: [
+                // Tab 1: Expense Budgets
+                ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+                  children: [
               // Hero Budget Gradient Card
               Container(
                 decoration: BoxDecoration(
@@ -668,8 +821,247 @@ class _BudgetManagementScreenState extends State<BudgetManagementScreen> {
               }),
             ],
           ),
-        );
+
+          // Tab 2: Income Streams & Revenue Targets
+          _buildIncomeStreamsTab(context, db),
+        ],
+      ),
+    ),
+  );
       },
+    );
+  }
+
+  Widget _buildIncomeStreamsTab(BuildContext context, LocalDatabase db) {
+    final incomeSources = db.getIncomeSources();
+    final totalExpectedKobo = incomeSources.fold<int>(0, (sum, s) => sum + s.expectedMonthlyKobo);
+    final totalReceivedKobo = incomeSources.fold<int>(0, (sum, s) => sum + s.receivedKobo);
+    final overallPct = totalExpectedKobo > 0 ? (totalReceivedKobo / totalExpectedKobo).clamp(0.0, 1.0) : 0.0;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+      children: [
+        // Hero Inflow Gradient Card
+        Container(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF059669), Color(0xFF10B981), Color(0xFF34D399)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: AppTheme.heroFloatShadow,
+          ),
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'REVENUE & INFLOW OVERVIEW',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.1,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${(overallPct * 100).toInt()}% ACHIEVED',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  PrivacyBlurWrapper(
+                    child: Text(
+                      MoneyFormatter.formatKobo(totalReceivedKobo),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'of ${MoneyFormatter.formatKobo(totalExpectedKobo)} target',
+                    style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: overallPct,
+                  minHeight: 8,
+                  backgroundColor: Colors.white24,
+                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        // Section Title & Add Stream Button
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Active Income Streams',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
+            ),
+            ElevatedButton.icon(
+              onPressed: () => _openAddOrEditIncomeSourceDialog(),
+              icon: const Icon(Icons.add, size: 16),
+              label: const Text('Add Source', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF10B981),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 12),
+
+        if (incomeSources.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Center(
+              child: Text(
+                'No income streams registered yet. Tap "Add Source" above.',
+                style: TextStyle(color: AppTheme.textSecondary),
+              ),
+            ),
+          )
+        else
+          ...incomeSources.map((source) {
+            final acc = db.getFinancialAccounts().firstWhere(
+                  (a) => a.id == source.accountId,
+                  orElse: () => db.getFinancialAccounts().first,
+                );
+            final ws = source.workspaceId != null ? db.getWorkspaceById(source.workspaceId!) : null;
+            final pct = source.expectedMonthlyKobo > 0
+                ? (source.receivedKobo / source.expectedMonthlyKobo).clamp(0.0, 1.0)
+                : 0.0;
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: AppTheme.softCardShadow,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE8F5E9),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Icon(Icons.payments_rounded, color: Color(0xFF16A34A), size: 22),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    source.name,
+                                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${acc.name} • ${ws?.name ?? "General"}',
+                                    style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit_note, color: AppTheme.textSecondary),
+                        tooltip: 'Edit Source',
+                        onPressed: () => _openAddOrEditIncomeSourceDialog(existing: source),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      PrivacyBlurWrapper(
+                        child: Text(
+                          'Received: ${MoneyFormatter.formatKobo(source.receivedKobo)}',
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF166534)),
+                        ),
+                      ),
+                      PrivacyBlurWrapper(
+                        child: Text(
+                          'Budget: ${MoneyFormatter.formatKobo(source.expectedMonthlyKobo)}',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: LinearProgressIndicator(
+                      value: pct,
+                      minHeight: 6,
+                      backgroundColor: const Color(0xFFF3F4F6),
+                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF10B981)),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+      ],
     );
   }
 
