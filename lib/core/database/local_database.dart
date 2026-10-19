@@ -319,6 +319,25 @@ class LocalDatabase {
         updatedAt: now.subtract(const Duration(days: 3)),
       ),
     ]);
+
+    _reviews.addAll([
+      ReviewEntry(
+        id: 'rev-wk-current',
+        kind: 'weekly',
+        completedAt: now.subtract(const Duration(days: 1)),
+        summary: 'Week 42 Strategic Review & Operating Cadence',
+        accomplishments: '• Closed Bems Group enterprise ops workflow audit\n• Maintained 16/8 intermittent fasting on Monday & Wednesday\n• Cleared 9 high-priority operational milestones without spillover',
+        lessons: '• Consolidate evening smartphone shutdown by 10:30 PM\n• Expand cash reserves buffer for unexpected Q4 vendor renewals',
+      ),
+      ReviewEntry(
+        id: 'rev-mo-prev',
+        kind: 'monthly',
+        completedAt: now.subtract(const Duration(days: 14)),
+        summary: 'Monthly Strategic Retrospective & Growth Audit',
+        accomplishments: '• Zero budget deficit achieved across all operational accounts\n• Bible study completed through Ephesians & Philippians\n• Daily hydration target met 26 out of 30 days',
+        lessons: '• Delegate preliminary client scoping earlier to prevent executive bottlenecks',
+      ),
+    ]);
   }
 
   // --- Profile & Preferences ---
@@ -425,6 +444,16 @@ class LocalDatabase {
     }
   }
 
+  void upsertRoutineTemplate(RoutineTemplate routine) {
+    final idx = _routineTemplates.indexWhere((r) => r.id == routine.id);
+    if (idx >= 0) {
+      _routineTemplates[idx] = routine;
+    } else {
+      _routineTemplates.add(routine);
+    }
+    _notify();
+  }
+
   // --- Care Checklist ---
   List<CareChecklistItem> getCareChecklist() => List.unmodifiable(_careChecklistItems);
   void toggleCareItem(String id) {
@@ -435,6 +464,16 @@ class LocalDatabase {
       );
       _notify();
     }
+  }
+
+  void upsertCareItem(CareChecklistItem item) {
+    final idx = _careChecklistItems.indexWhere((c) => c.id == item.id);
+    if (idx >= 0) {
+      _careChecklistItems[idx] = item;
+    } else {
+      _careChecklistItems.add(item);
+    }
+    _notify();
   }
 
   // --- Chores ---
@@ -455,6 +494,16 @@ class LocalDatabase {
       );
       _notify();
     }
+  }
+
+  void upsertChore(Chore chore) {
+    final idx = _chores.indexWhere((c) => c.id == chore.id);
+    if (idx >= 0) {
+      _chores[idx] = chore;
+    } else {
+      _chores.add(chore);
+    }
+    _notify();
   }
 
   // --- Financial Ledger Engine (BR-06 & Double Entry) ---
@@ -808,7 +857,13 @@ class LocalDatabase {
   // --- Reviews ---
   List<ReviewEntry> getReviews() => List.unmodifiable(_reviews);
   void saveReview(ReviewEntry review) {
+    _reviews.removeWhere((r) => r.id == review.id);
     _reviews.insert(0, review);
+    _notify();
+  }
+
+  void deleteReview(String id) {
+    _reviews.removeWhere((r) => r.id == id);
     _notify();
   }
 
@@ -850,6 +905,16 @@ class LocalDatabase {
     _notify();
   }
 
+  void upsertSleepLog(SleepLog log) {
+    final idx = _sleepLogs.indexWhere((s) => s.id == log.id);
+    if (idx >= 0) {
+      _sleepLogs[idx] = log;
+    } else {
+      _sleepLogs.insert(0, log);
+    }
+    _notify();
+  }
+
   // --- Follow Ups ---
   List<FollowUp> getFollowUps({String? workspaceId}) {
     if (workspaceId == null || workspaceId.isEmpty) {
@@ -860,6 +925,16 @@ class LocalDatabase {
 
   void addFollowUp(FollowUp followUp) {
     _followUps.add(followUp);
+    _notify();
+  }
+
+  void upsertFollowUp(FollowUp followUp) {
+    final idx = _followUps.indexWhere((f) => f.id == followUp.id);
+    if (idx >= 0) {
+      _followUps[idx] = followUp;
+    } else {
+      _followUps.add(followUp);
+    }
     _notify();
   }
 
@@ -881,6 +956,14 @@ class LocalDatabase {
   void addPrayerSession(PrayerSession session) {
     _prayerSessions.insert(0, session);
     _notify();
+  }
+
+  void updatePrayerSession(PrayerSession session) {
+    final idx = _prayerSessions.indexWhere((p) => p.id == session.id);
+    if (idx >= 0) {
+      _prayerSessions[idx] = session;
+      _notify();
+    }
   }
 
   // --- Omni Notes Workstation ---
