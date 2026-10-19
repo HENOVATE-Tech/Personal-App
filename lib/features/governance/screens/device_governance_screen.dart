@@ -49,19 +49,32 @@ class _DeviceGovernanceScreenState extends State<DeviceGovernanceScreen> {
   void initState() {
     super.initState();
     _checkStatus();
-    _syncBlockedPackages();
   }
 
   Future<void> _checkStatus() async {
     final admin = await DeviceControlService.instance.isDeviceAdminActive();
     final access = await DeviceControlService.instance.isAccessibilityActive();
     final remainingSecs = await DeviceControlService.instance.getEmergencyOverrideRemainingSeconds();
+    final savedReason = await DeviceControlService.instance.getEmergencyOverrideReason();
+    final savedPkgs = await DeviceControlService.instance.getBlockedPackages();
+    final customApps = await DeviceControlService.instance.getGovernedApps();
+    final isShield = await DeviceControlService.instance.isSocialMediaShieldEnabled();
+
     if (mounted) {
       setState(() {
         _isAdminActive = admin;
         _isAccessibilityActive = access;
+        _isSocialShieldActive = isShield;
+        if (customApps.isNotEmpty) {
+          _allGovernedApps.addAll(customApps);
+        }
+        if (savedPkgs.isNotEmpty) {
+          _selectedBlockedPackages.clear();
+          _selectedBlockedPackages.addAll(savedPkgs);
+        }
         if (remainingSecs > 0) {
           _remainingOverrideSeconds = remainingSecs;
+          _activeOverrideReason = savedReason;
           _startCountdownTimer();
         }
       });
@@ -77,6 +90,7 @@ class _DeviceGovernanceScreenState extends State<DeviceGovernanceScreen> {
     _overrideTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_remainingOverrideSeconds <= 1) {
         timer.cancel();
+        DeviceControlService.instance.cancelEmergencyOverride();
         setState(() {
           _remainingOverrideSeconds = 0;
           _activeOverrideReason = '';
@@ -175,7 +189,7 @@ class _DeviceGovernanceScreenState extends State<DeviceGovernanceScreen> {
                       return;
                     }
                     Navigator.pop(ctx);
-                    await DeviceControlService.instance.requestEmergencyOverride(durationMinutes: selectedDuration);
+                    await DeviceControlService.instance.requestEmergencyOverride(durationMinutes: selectedDuration, reason: reason);
                     setState(() {
                       _remainingOverrideSeconds = selectedDuration * 60;
                       _activeOverrideReason = reason;
@@ -250,6 +264,7 @@ class _DeviceGovernanceScreenState extends State<DeviceGovernanceScreen> {
                     _selectedBlockedPackages.add(pkg);
                   });
                   _syncBlockedPackages();
+                  DeviceControlService.instance.saveGovernedApps(_allGovernedApps);
                   Navigator.pop(ctx);
                 }
               },

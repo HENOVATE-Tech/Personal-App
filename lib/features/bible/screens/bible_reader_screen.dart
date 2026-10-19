@@ -163,7 +163,8 @@ class _BibleReaderScreenState extends State<BibleReaderScreen> {
       builder: (ctx) {
         final titleCtrl = TextEditingController(text: 'Apply Scripture: ${verse.reference}');
         final noteCtrl = TextEditingController(text: '"${verse.text}"\n\nAction Commitment: ');
-        String selectedWorkspace = 'ws-personal';
+        final workspaces = LocalDatabase.instance.getWorkspaces();
+        String selectedWorkspace = workspaces.isNotEmpty ? workspaces.first.id : 'ws-personal';
 
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -193,11 +194,10 @@ class _BibleReaderScreenState extends State<BibleReaderScreen> {
                 DropdownButtonFormField<String>(
                   value: selectedWorkspace,
                   decoration: const InputDecoration(labelText: 'Target Workspace', isDense: true),
-                  items: const [
-                    DropdownMenuItem(value: 'ws-personal', child: Text('Personal & Spiritual')),
-                    DropdownMenuItem(value: 'ws-bems', child: Text('Bems Group (COO)')),
-                    DropdownMenuItem(value: 'ws-henovate', child: Text('Henovate (Founder)')),
-                  ],
+                  items: workspaces.map((ws) => DropdownMenuItem(
+                    value: ws.id,
+                    child: Text('${ws.name} (${ws.type.toUpperCase()})'),
+                  )).toList(),
                   onChanged: (val) {
                     if (val != null) selectedWorkspace = val;
                   },

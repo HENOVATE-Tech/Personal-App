@@ -410,7 +410,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    task.workspaceId.replaceFirst('ws-', '').toUpperCase(),
+                    (db.getWorkspaceById(task.workspaceId)?.name ?? task.workspaceId.replaceFirst('ws-', '')).toUpperCase(),
                     style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.pastelPeachText),
                   ),
                 ),

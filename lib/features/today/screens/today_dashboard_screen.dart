@@ -16,11 +16,11 @@ import '../../analytics/screens/insights_screen.dart';
 import '../../governance/screens/device_governance_screen.dart';
 import '../../settings/screens/settings_screen.dart';
 import '../../notes/screens/notes_workstation_screen.dart';
-import '../../bible/screens/bible_reader_screen.dart';
 import '../../../core/services/api_service.dart';
 import '../../more/screens/more_hub_screen.dart';
 import '../../finance/screens/budget_management_screen.dart';
 import '../../../core/services/sms_ingestion_service.dart';
+import '../../calendar/screens/calendar_screen.dart';
 import '../../reminders/screens/reminders_screen.dart';
 
 class TodayDashboardScreen extends StatefulWidget {
@@ -431,65 +431,20 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
                         },
                       ),
                       _buildServiceItem(
-                        icon: Icons.draw_outlined,
-                        label: 'Omni Notes',
+                        icon: Icons.account_balance_wallet_outlined,
+                        label: 'Budgets & Income',
                         onTap: () {
                           Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const NotesWorkstationScreen()),
+                            MaterialPageRoute(builder: (_) => const BudgetManagementScreen()),
                           );
                         },
                       ),
                       _buildServiceItem(
-                        icon: Icons.checkroom_outlined,
-                        label: 'Wardrobe',
+                        icon: Icons.calendar_month_outlined,
+                        label: 'Calendar Plan',
                         onTap: () {
                           Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const LifestyleHubScreen()),
-                          );
-                        },
-                      ),
-                      _buildServiceItem(
-                        icon: Icons.auto_stories_outlined,
-                        label: 'Devotion',
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const SpiritualOverviewScreen()),
-                          );
-                        },
-                      ),
-                      _buildServiceItem(
-                        icon: Icons.menu_book,
-                        label: 'Holy Bible',
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const BibleReaderScreen()),
-                          );
-                        },
-                      ),
-                      _buildServiceItem(
-                        icon: Icons.menu_book_outlined,
-                        label: 'Library',
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const ReadingLibraryScreen()),
-                          );
-                        },
-                      ),
-                      _buildServiceItem(
-                        icon: Icons.favorite_outline,
-                        label: 'Health & Sleep',
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const HealthHubScreen()),
-                          );
-                        },
-                      ),
-                      _buildServiceItem(
-                        icon: Icons.insights_outlined,
-                        label: 'Analytics',
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const InsightsScreen()),
+                            MaterialPageRoute(builder: (_) => const CalendarScreen()),
                           );
                         },
                       ),
@@ -568,9 +523,10 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
                 else
                   ...topPriorities.map((task) {
                     final isDone = task.status == TaskStatus.completed;
-                    final categoryTag = task.workspaceId == 'ws-bems-group'
-                        ? 'Bems Group • COO'
-                        : (task.workspaceId == 'ws-henovate' ? 'Henovate • Founder' : 'Personal Order');
+                    final ws = db.getWorkspaceById(task.workspaceId);
+                    final categoryTag = ws != null
+                        ? '${ws.name} • ${ws.type.toUpperCase()}'
+                        : 'Personal Order';
 
                     return Container(
                       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
