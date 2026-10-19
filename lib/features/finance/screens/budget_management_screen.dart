@@ -301,111 +301,118 @@ class _BudgetManagementScreenState extends State<BudgetManagementScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              title: Row(
-                children: [
-                  const Icon(Icons.trending_up, color: Color(0xFF10B981)),
-                  const SizedBox(width: 8),
-                  Text(
-                    existing == null ? 'Add Income Stream' : 'Edit Income Stream',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                  ),
-                ],
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      controller: nameCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Income Source Name',
-                        hintText: 'e.g. Consulting, Executive Salary, Dividends',
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: expectedCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Monthly Target / Budget (₦)',
-                        hintText: 'e.g. 500,000',
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: receivedCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Received This Month (₦)',
-                        hintText: 'e.g. 250,000',
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    const Text('Destination Account', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                    const SizedBox(height: 4),
-                    DropdownButtonFormField<String>(
-                      value: selectedAccountId,
-                      items: accounts.map((a) => DropdownMenuItem(value: a.id, child: Text(a.name))).toList(),
-                      onChanged: (val) {
-                        if (val != null) setDialogState(() => selectedAccountId = val);
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    const Text('Workspace Link (Optional)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                    const SizedBox(height: 4),
-                    DropdownButtonFormField<String?>(
-                      value: selectedWorkspaceId,
-                      items: [
-                        const DropdownMenuItem(value: null, child: Text('All / Personal')),
-                        ...workspaces.map((w) => DropdownMenuItem(value: w.id, child: Text(w.name))),
-                      ],
-                      onChanged: (val) {
-                        setDialogState(() => selectedWorkspaceId = val);
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                if (existing != null)
-                  TextButton(
-                    onPressed: () {
-                      LocalDatabase.instance.deleteIncomeSource(existing.id);
-                      Navigator.pop(ctx);
-                    },
-                    child: const Text('Delete', style: TextStyle(color: Colors.red)),
-                  ),
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF10B981),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: () {
-                    final name = nameCtrl.text.trim();
-                    if (name.isEmpty) return;
-                    final expKobo = MoneyFormatter.parseToKobo(expectedCtrl.text);
-                    final recKobo = MoneyFormatter.parseToKobo(receivedCtrl.text);
+            final effectiveAccountId = accounts.any((a) => a.id == selectedAccountId)
+                        ? selectedAccountId
+                        : (accounts.isNotEmpty ? accounts.first.id : null);
+                    final effectiveWorkspaceId = workspaces.any((w) => w.id == selectedWorkspaceId)
+                        ? selectedWorkspaceId
+                        : null;
 
-                    final src = IncomeSource(
-                      id: existing?.id ?? 'inc-${const Uuid().v4().substring(0, 8)}',
-                      name: name,
-                      accountId: selectedAccountId,
-                      expectedMonthlyKobo: expKobo,
-                      receivedKobo: recKobo,
-                      workspaceId: selectedWorkspaceId,
-                    );
+                    return AlertDialog(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                      title: Row(
+                        children: [
+                          const Icon(Icons.trending_up, color: Color(0xFF10B981)),
+                          const SizedBox(width: 8),
+                          Text(
+                            existing == null ? 'Add Income Stream' : 'Edit Income Stream',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                          ),
+                        ],
+                      ),
+                      content: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextField(
+                              controller: nameCtrl,
+                              decoration: const InputDecoration(
+                                labelText: 'Income Source Name',
+                                hintText: 'e.g. Consulting, Executive Salary, Dividends',
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            TextField(
+                              controller: expectedCtrl,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Monthly Target / Budget (₦)',
+                                hintText: 'e.g. 500,000',
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            TextField(
+                              controller: receivedCtrl,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Received This Month (₦)',
+                                hintText: 'e.g. 250,000',
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            const Text('Destination Account', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                            const SizedBox(height: 4),
+                            DropdownButtonFormField<String>(
+                              value: effectiveAccountId,
+                              items: accounts.map((a) => DropdownMenuItem(value: a.id, child: Text(a.name))).toList(),
+                              onChanged: (val) {
+                                if (val != null) setDialogState(() => selectedAccountId = val);
+                              },
+                            ),
+                            const SizedBox(height: 14),
+                            const Text('Workspace Link (Optional)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                            const SizedBox(height: 4),
+                            DropdownButtonFormField<String?>(
+                              value: effectiveWorkspaceId,
+                              items: [
+                                const DropdownMenuItem(value: null, child: Text('All / Personal')),
+                                ...workspaces.map((w) => DropdownMenuItem(value: w.id, child: Text(w.name))),
+                              ],
+                              onChanged: (val) {
+                                setDialogState(() => selectedWorkspaceId = val);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      actions: [
+                        if (existing != null)
+                          TextButton(
+                            onPressed: () {
+                              LocalDatabase.instance.deleteIncomeSource(existing.id);
+                              Navigator.pop(ctx);
+                            },
+                            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                          ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Cancel'),
+                        ),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF10B981),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: () {
+                            final name = nameCtrl.text.trim();
+                            if (name.isEmpty) return;
+                            final expKobo = MoneyFormatter.parseToKobo(expectedCtrl.text);
+                            final recKobo = MoneyFormatter.parseToKobo(receivedCtrl.text);
 
-                    LocalDatabase.instance.upsertIncomeSource(src);
-                    Navigator.pop(ctx);
-                  },
+                            final src = IncomeSource(
+                              id: existing?.id ?? 'inc-${const Uuid().v4().substring(0, 8)}',
+                              name: name,
+                              accountId: effectiveAccountId ?? (accounts.isNotEmpty ? accounts.first.id : ''),
+                              expectedMonthlyKobo: expKobo,
+                              receivedKobo: recKobo,
+                              workspaceId: effectiveWorkspaceId,
+                            );
+
+                            LocalDatabase.instance.upsertIncomeSource(src);
+                            Navigator.pop(ctx);
+                          },
                   child: const Text('Save Source'),
                 ),
               ],

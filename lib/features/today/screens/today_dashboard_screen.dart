@@ -19,6 +19,7 @@ import '../../notes/screens/notes_workstation_screen.dart';
 import '../../../core/services/api_service.dart';
 import '../../more/screens/more_hub_screen.dart';
 import '../../finance/screens/budget_management_screen.dart';
+import '../../finance/screens/finance_overview_screen.dart';
 import '../../../core/services/sms_ingestion_service.dart';
 import '../../calendar/screens/calendar_screen.dart';
 import '../../reminders/screens/reminders_screen.dart';
@@ -766,7 +767,6 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
 
   Widget _buildSlideAvailableFunds(int totalBalanceKobo) {
     return Container(
-      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
@@ -778,80 +778,96 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => FinanceOverviewScreen(onAddTransaction: widget.onQuickExpense),
+              ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Available Liquid Funds',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Available Liquid Funds',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                          SizedBox(height: 3),
+                          Row(
+                            children: [
+                              Icon(Icons.check_circle, size: 12, color: Color(0xFF10B981)),
+                              SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  'Double-entry ledger verified',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                    SizedBox(height: 3),
-                    Row(
-                      children: [
-                        Icon(Icons.check_circle, size: 12, color: Color(0xFF10B981)),
-                        SizedBox(width: 4),
-                        Flexible(
+                    Icon(Icons.account_balance_wallet_outlined, color: AppTheme.textTertiary, size: 26),
+                  ],
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: PrivacyBlurWrapper(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
                           child: Text(
-                            'Double-entry ledger verified',
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                            MoneyFormatter.formatKobo(totalBalanceKobo),
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              color: AppTheme.textPrimary,
+                              letterSpacing: -0.5,
+                            ),
                           ),
                         ),
-                      ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.darkCharcoal,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      ),
+                      onPressed: widget.onQuickExpense,
+                      child: const Text('Quick Expense', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
-              ),
-              Icon(Icons.account_balance_wallet_outlined, color: AppTheme.textTertiary, size: 26),
-            ],
+              ],
+            ),
           ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: PrivacyBlurWrapper(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      MoneyFormatter.formatKobo(totalBalanceKobo),
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        color: AppTheme.textPrimary,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.darkCharcoal,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                ),
-                onPressed: widget.onQuickExpense,
-                child: const Text('Quick Expense', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }

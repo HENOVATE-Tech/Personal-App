@@ -162,11 +162,18 @@ class _FinanceOverviewScreenState extends State<FinanceOverviewScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
+            final effectiveAccountId = accounts.any((a) => a.id == selectedAccountId)
+                ? selectedAccountId
+                : (accounts.isNotEmpty ? accounts.first.id : null);
+            final effectiveCategoryId = categories.any((c) => c.id == selectedCategoryId)
+                ? selectedCategoryId
+                : (categories.isNotEmpty ? categories.first.id : null);
+
             final cat = categories.cast<FinancialCategory?>().firstWhere(
-                  (c) => c?.id == selectedCategoryId,
+                  (c) => c?.id == (effectiveCategoryId ?? selectedCategoryId),
                   orElse: () => null,
                 );
-            final budget = db.getBudgetForCategory(selectedCategoryId);
+            final budget = db.getBudgetForCategory(effectiveCategoryId ?? selectedCategoryId);
             final willOverspend = budget != null &&
                 budget.allocatedKobo > 0 &&
                 (budget.spentKobo + alert.amountKobo) > budget.allocatedKobo;
@@ -278,7 +285,7 @@ class _FinanceOverviewScreenState extends State<FinanceOverviewScreen> {
 
                     // Select Account
                     DropdownButtonFormField<String>(
-                      value: selectedAccountId,
+                      value: effectiveAccountId,
                       decoration: const InputDecoration(labelText: 'Debit From Account'),
                       items: accounts.map((acc) {
                         return DropdownMenuItem(
@@ -294,7 +301,7 @@ class _FinanceOverviewScreenState extends State<FinanceOverviewScreen> {
 
                     // Select Category
                     DropdownButtonFormField<String>(
-                      value: selectedCategoryId,
+                      value: effectiveCategoryId,
                       decoration: const InputDecoration(labelText: 'Category Allocation'),
                       items: categories.map((c) {
                         return DropdownMenuItem(
@@ -324,10 +331,12 @@ class _FinanceOverviewScreenState extends State<FinanceOverviewScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   onPressed: () {
+                    final finalAccId = effectiveAccountId ?? (accounts.isNotEmpty ? accounts.first.id : '');
+                    final finalCatId = effectiveCategoryId ?? (categories.isNotEmpty ? categories.first.id : '');
                     db.processSmsDebitAlert(
                       alert.id,
-                      accountId: selectedAccountId,
-                      categoryId: selectedCategoryId,
+                      accountId: finalAccId,
+                      categoryId: finalCatId,
                     );
                     Navigator.pop(ctx);
                     ScaffoldMessenger.of(context).showSnackBar(

@@ -58,9 +58,11 @@ class _AppShellState extends State<AppShell> {
     final shellContent = Stack(
       children: [
         // Active Screen Content
-        IndexedStack(
-          index: _currentIndex,
-          children: screens,
+        Positioned.fill(
+          child: IndexedStack(
+            index: _currentIndex,
+            children: screens,
+          ),
         ),
 
         // Floating Top Ringing Alarm Banner
@@ -233,34 +235,37 @@ class _AppShellState extends State<AppShell> {
   Widget _buildNavItem(int index, IconData activeIcon, IconData inactiveIcon, String label) {
     final isSelected = _currentIndex == index;
 
-    return GestureDetector(
-      onTap: () => setState(() => _currentIndex = index),
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFFFECE5) : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isSelected ? activeIcon : inactiveIcon,
-              color: isSelected ? AppTheme.coralPrimary : const Color(0xFF9CA3AF),
-              size: 22,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => setState(() => _currentIndex = index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFFFFECE5) : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isSelected ? activeIcon : inactiveIcon,
                 color: isSelected ? AppTheme.coralPrimary : const Color(0xFF9CA3AF),
+                size: 22,
               ),
-            ),
-          ],
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  color: isSelected ? AppTheme.coralPrimary : const Color(0xFF9CA3AF),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

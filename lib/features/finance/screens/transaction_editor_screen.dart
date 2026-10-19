@@ -74,6 +74,25 @@ class _TransactionEditorScreenState extends State<TransactionEditorScreen> {
         : _memoController.text.trim();
 
     final db = LocalDatabase.instance;
+    final accounts = db.getFinancialAccounts();
+    final categories = db.getFinancialCategories();
+    final effectiveSourceId = accounts.any((a) => a.id == _sourceAccountId)
+        ? _sourceAccountId
+        : (accounts.isNotEmpty ? accounts.first.id : null);
+    final effectiveTargetId = accounts.any((a) => a.id == _targetAccountId)
+        ? _targetAccountId
+        : (accounts.length > 1 ? accounts[1].id : null);
+    final effectiveCategoryId = categories.any((c) => c.id == _categoryId)
+        ? _categoryId
+        : (categories.isNotEmpty ? categories.first.id : null);
+
+    if (accounts.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please add a financial account first.')),
+      );
+      return;
+    }
+
     final List<LedgerMovement> movements = [];
     final txId = _uuid.v4();
 
@@ -83,14 +102,14 @@ class _TransactionEditorScreenState extends State<TransactionEditorScreen> {
       movements.add(LedgerMovement(
         id: _uuid.v4(),
         transactionId: txId,
-        categoryId: _categoryId,
+        categoryId: effectiveCategoryId,
         amountKobo: kobo,
       ));
       // 2. Credit Asset Account (decreases asset): -kobo
       movements.add(LedgerMovement(
         id: _uuid.v4(),
         transactionId: txId,
-        accountId: _sourceAccountId,
+        accountId: effectiveSourceId,
         amountKobo: -kobo,
       ));
     } else if (_type == TransactionType.income) {
@@ -98,18 +117,18 @@ class _TransactionEditorScreenState extends State<TransactionEditorScreen> {
       movements.add(LedgerMovement(
         id: _uuid.v4(),
         transactionId: txId,
-        accountId: _sourceAccountId,
+        accountId: effectiveSourceId,
         amountKobo: kobo,
       ));
       // 2. Credit Income Category: -kobo
       movements.add(LedgerMovement(
         id: _uuid.v4(),
         transactionId: txId,
-        categoryId: _categoryId,
+        categoryId: effectiveCategoryId,
         amountKobo: -kobo,
       ));
     } else if (_type == TransactionType.transfer) {
-      if (_sourceAccountId == _targetAccountId) {
+      if (effectiveSourceId == effectiveTargetId) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Source and target accounts must be different.')),
         );
@@ -119,14 +138,14 @@ class _TransactionEditorScreenState extends State<TransactionEditorScreen> {
       movements.add(LedgerMovement(
         id: _uuid.v4(),
         transactionId: txId,
-        accountId: _sourceAccountId,
+        accountId: effectiveSourceId,
         amountKobo: -kobo,
       ));
       // 2. Inbound Account (increases): +kobo
       movements.add(LedgerMovement(
         id: _uuid.v4(),
         transactionId: txId,
-        accountId: _targetAccountId,
+        accountId: effectiveTargetId,
         amountKobo: kobo,
       ));
     }
@@ -149,6 +168,16 @@ class _TransactionEditorScreenState extends State<TransactionEditorScreen> {
   Widget build(BuildContext context) {
     final accounts = LocalDatabase.instance.getFinancialAccounts();
     final categories = LocalDatabase.instance.getFinancialCategories();
+
+    final effectiveSourceId = accounts.any((a) => a.id == _sourceAccountId)
+        ? _sourceAccountId
+        : (accounts.isNotEmpty ? accounts.first.id : null);
+    final effectiveTargetId = accounts.any((a) => a.id == _targetAccountId)
+        ? _targetAccountId
+        : (accounts.length > 1 ? accounts[1].id : (accounts.isNotEmpty ? accounts.first.id : null));
+    final effectiveCategoryId = categories.any((c) => c.id == _categoryId)
+        ? _categoryId
+        : (categories.isNotEmpty ? categories.first.id : null);
 
     return Scaffold(
       appBar: AppBar(
@@ -203,7 +232,7 @@ class _TransactionEditorScreenState extends State<TransactionEditorScreen> {
 
             // Source Account Selector
             DropdownButtonFormField<String>(
-              value: _sourceAccountId,
+              value: effectiveSourceId,
               decoration: InputDecoration(
                 labelText: _type == TransactionType.transfer ? 'From Account' : 'Account',
               ),
@@ -220,7 +249,7 @@ class _TransactionEditorScreenState extends State<TransactionEditorScreen> {
             // If Transfer -> Target Account Selector
             if (_type == TransactionType.transfer) ...[
               DropdownButtonFormField<String>(
-                value: _targetAccountId,
+                value: effectiveTargetId,
                 decoration: const InputDecoration(labelText: 'To Account'),
                 items: accounts.map((acc) {
                   return DropdownMenuItem(
@@ -234,7 +263,7 @@ class _TransactionEditorScreenState extends State<TransactionEditorScreen> {
             ] else ...[
               // Category Selector
               DropdownButtonFormField<String>(
-                value: _categoryId,
+                value: effectiveCategoryId,
                 decoration: const InputDecoration(labelText: 'Category'),
                 items: categories.map((cat) {
                   final b = LocalDatabase.instance.getBudgetForCategory(cat.id);

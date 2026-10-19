@@ -37,10 +37,15 @@ class _QuickCaptureSheetState extends State<QuickCaptureSheet> {
     final title = _titleController.text.trim();
     if (title.isEmpty) return;
 
+    final workspaces = LocalDatabase.instance.getWorkspaces();
+    final effectiveWorkspaceId = workspaces.any((w) => w.id == _selectedWorkspaceId)
+        ? _selectedWorkspaceId
+        : (workspaces.isNotEmpty ? workspaces.first.id : AppConstants.workspacePersonalId);
+
     final now = DateTime.now();
     final task = Task(
       id: _uuid.v4(),
-      workspaceId: _selectedWorkspaceId,
+      workspaceId: effectiveWorkspaceId,
       title: title,
       nextAction: _nextActionController.text.trim(),
       importance: _importance,
@@ -76,6 +81,9 @@ class _QuickCaptureSheetState extends State<QuickCaptureSheet> {
   @override
   Widget build(BuildContext context) {
     final workspaces = LocalDatabase.instance.getWorkspaces();
+    final effectiveWorkspaceId = workspaces.any((w) => w.id == _selectedWorkspaceId)
+        ? _selectedWorkspaceId
+        : (workspaces.isNotEmpty ? workspaces.first.id : null);
 
     return Container(
       decoration: const BoxDecoration(
@@ -161,7 +169,7 @@ class _QuickCaptureSheetState extends State<QuickCaptureSheet> {
 
           // Workspace Picker
           DropdownButtonFormField<String>(
-            value: _selectedWorkspaceId,
+            value: effectiveWorkspaceId,
             decoration: InputDecoration(
               labelText: 'Workspace Partition',
               filled: true,
