@@ -308,6 +308,35 @@ class SupabaseSyncService {
         pushedCount++;
       }
 
+      // 11. Omni Notes
+      for (final note in db.getNotes()) {
+        await conn.execute(
+          Sql.named(
+            'INSERT INTO notes (id, workspace_id, title, content, category, sub_category, tags, scripture_reference, is_pinned, color_value, linked_task_id, created_at, updated_at) '
+            'VALUES (@id, @wsId, @title, @content, @cat, @subCat, @tags, @scripture, @isPinned, @color, @taskId, @createdAt, NOW()) '
+            'ON CONFLICT (id) DO UPDATE SET '
+            'workspace_id = EXCLUDED.workspace_id, title = EXCLUDED.title, content = EXCLUDED.content, category = EXCLUDED.category, '
+            'sub_category = EXCLUDED.sub_category, tags = EXCLUDED.tags, scripture_reference = EXCLUDED.scripture_reference, '
+            'is_pinned = EXCLUDED.is_pinned, color_value = EXCLUDED.color_value, linked_task_id = EXCLUDED.linked_task_id, updated_at = NOW();',
+          ),
+          parameters: {
+            'id': note.id,
+            'wsId': note.workspaceId,
+            'title': note.title,
+            'content': note.content,
+            'cat': note.category.name,
+            'subCat': note.subCategory,
+            'tags': note.tags,
+            'scripture': note.scriptureReference,
+            'isPinned': note.isPinned,
+            'color': note.colorValue,
+            'taskId': note.linkedTaskId,
+            'createdAt': note.createdAt,
+          },
+        );
+        pushedCount++;
+      }
+
       await conn.close();
 
       return SyncResult(
@@ -370,6 +399,40 @@ class SupabaseSyncService {
         );
         db.upsertBudget(b);
         pulledCount++;
+      }
+
+      // 3. Pull Notes
+      try {
+        final noteRows = await conn.execute(
+          'SELECT id, workspace_id, title, content, category, sub_category, tags, scripture_reference, is_pinned, color_value, linked_task_id, created_at, updated_at FROM notes;',
+        );
+        for (final r in noteRows) {
+          final tagsList = (r[6] is List)
+              ? (r[6] as List).map((e) => e.toString()).toList()
+              : <String>[];
+          final n = OmniNote(
+            id: r[0] as String,
+            workspaceId: r[1] as String? ?? 'ws-personal',
+            title: r[2] as String,
+            content: r[3] as String,
+            category: NoteCategory.values.firstWhere(
+              (v) => v.name == r[4],
+              orElse: () => NoteCategory.personal,
+            ),
+            subCategory: r[5] as String?,
+            tags: tagsList,
+            scriptureReference: r[7] as String?,
+            isPinned: r[8] as bool? ?? false,
+            colorValue: (r[9] as num?)?.toInt() ?? 0xFF1E293B,
+            linkedTaskId: r[10] as String?,
+            createdAt: r[11] != null ? DateTime.parse(r[11].toString()) : DateTime.now(),
+            updatedAt: r[12] != null ? DateTime.parse(r[12].toString()) : DateTime.now(),
+          );
+          db.upsertNote(n);
+          pulledCount++;
+        }
+      } catch (_) {
+        // Table may be empty or syncing fresh
       }
 
       await conn.close();

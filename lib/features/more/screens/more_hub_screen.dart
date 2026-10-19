@@ -8,6 +8,7 @@ import '../../health/screens/health_hub_screen.dart';
 import '../../settings/screens/settings_screen.dart';
 import '../../analytics/screens/insights_screen.dart';
 import '../../governance/screens/device_governance_screen.dart';
+import '../../notes/screens/notes_workstation_screen.dart';
 
 class MoreHubScreen extends StatelessWidget {
   const MoreHubScreen({super.key});
@@ -93,6 +94,15 @@ class MoreHubScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
+                _buildHubCard(
+                  context,
+                  icon: Icons.draw_outlined,
+                  iconColor: const Color(0xFF9333EA),
+                  badge: 'OMNI NOTES',
+                  title: 'Notes & Revelations Hub',
+                  subtitle: 'Prophetic revelations, visions, bible study, strategic blueprints & convert to tasks',
+                  destination: const NotesWorkstationScreen(),
+                ),
                 _buildHubCard(
                   context,
                   icon: Icons.church,

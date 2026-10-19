@@ -877,3 +877,153 @@ class ReviewEntry {
     required this.lessons,
   });
 }
+
+enum NoteCategory {
+  spiritual,
+  bibleStudy,
+  visionStrategy,
+  professional,
+  relationships,
+  personal,
+}
+
+extension NoteCategoryExtension on NoteCategory {
+  String get displayName {
+    switch (this) {
+      case NoteCategory.spiritual:
+        return 'Spiritual (Revelations & Dreams)';
+      case NoteCategory.bibleStudy:
+        return 'Bible Study & Exegesis';
+      case NoteCategory.visionStrategy:
+        return 'Vision & Strategy';
+      case NoteCategory.professional:
+        return 'Professional Workspaces';
+      case NoteCategory.relationships:
+        return 'Relationships & Dossiers';
+      case NoteCategory.personal:
+        return 'Personal & Reflections';
+    }
+  }
+
+  String get shortName {
+    switch (this) {
+      case NoteCategory.spiritual:
+        return 'Spiritual';
+      case NoteCategory.bibleStudy:
+        return 'Bible Study';
+      case NoteCategory.visionStrategy:
+        return 'Vision';
+      case NoteCategory.professional:
+        return 'Professional';
+      case NoteCategory.relationships:
+        return 'Relationships';
+      case NoteCategory.personal:
+        return 'Personal';
+    }
+  }
+}
+
+class OmniNote {
+  final String id;
+  final String workspaceId;
+  final String title;
+  final String content;
+  final NoteCategory category;
+  final String? subCategory;
+  final List<String> tags;
+  final String? scriptureReference;
+  final bool isPinned;
+  final int colorValue;
+  final String? linkedTaskId;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  const OmniNote({
+    required this.id,
+    this.workspaceId = 'ws-personal',
+    required this.title,
+    required this.content,
+    required this.category,
+    this.subCategory,
+    this.tags = const [],
+    this.scriptureReference,
+    this.isPinned = false,
+    this.colorValue = 0xFFFFFFFF,
+    this.linkedTaskId,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  OmniNote copyWith({
+    String? workspaceId,
+    String? title,
+    String? content,
+    NoteCategory? category,
+    String? subCategory,
+    List<String>? tags,
+    String? scriptureReference,
+    bool? isPinned,
+    int? colorValue,
+    String? linkedTaskId,
+    DateTime? updatedAt,
+  }) {
+    return OmniNote(
+      id: id,
+      workspaceId: workspaceId ?? this.workspaceId,
+      title: title ?? this.title,
+      content: content ?? this.content,
+      category: category ?? this.category,
+      subCategory: subCategory ?? this.subCategory,
+      tags: tags ?? this.tags,
+      scriptureReference: scriptureReference ?? this.scriptureReference,
+      isPinned: isPinned ?? this.isPinned,
+      colorValue: colorValue ?? this.colorValue,
+      linkedTaskId: linkedTaskId ?? this.linkedTaskId,
+      createdAt: createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'workspaceId': workspaceId,
+      'title': title,
+      'content': content,
+      'category': category.name,
+      'subCategory': subCategory,
+      'tags': tags,
+      'scriptureReference': scriptureReference,
+      'isPinned': isPinned,
+      'colorValue': colorValue,
+      'linkedTaskId': linkedTaskId,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+    };
+  }
+
+  factory OmniNote.fromJson(Map<String, dynamic> json) {
+    return OmniNote(
+      id: json['id'] as String,
+      workspaceId: json['workspaceId'] as String? ?? json['workspace_id'] as String? ?? 'ws-personal',
+      title: json['title'] as String? ?? 'Untitled Note',
+      content: json['content'] as String? ?? '',
+      category: NoteCategory.values.firstWhere(
+        (c) => c.name == (json['category'] as String?),
+        orElse: () => NoteCategory.personal,
+      ),
+      subCategory: json['subCategory'] as String? ?? json['sub_category'] as String?,
+      tags: (json['tags'] as List?)?.map((t) => t.toString()).toList() ?? const [],
+      scriptureReference: json['scriptureReference'] as String? ?? json['scripture_reference'] as String?,
+      isPinned: json['isPinned'] as bool? ?? json['is_pinned'] as bool? ?? false,
+      colorValue: (json['colorValue'] as num?)?.toInt() ?? (json['color_value'] as num?)?.toInt() ?? 0xFFFFFFFF,
+      linkedTaskId: json['linkedTaskId'] as String? ?? json['linked_task_id'] as String?,
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'] as String)
+          : (json['created_at'] != null ? DateTime.parse(json['created_at'] as String) : DateTime.now()),
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.parse(json['updatedAt'] as String)
+          : (json['updated_at'] != null ? DateTime.parse(json['updated_at'] as String) : DateTime.now()),
+    );
+  }
+}

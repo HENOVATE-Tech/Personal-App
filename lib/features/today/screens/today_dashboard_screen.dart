@@ -16,6 +16,7 @@ import '../../health/screens/health_hub_screen.dart';
 import '../../analytics/screens/insights_screen.dart';
 import '../../governance/screens/device_governance_screen.dart';
 import '../../settings/screens/settings_screen.dart';
+import '../../notes/screens/notes_workstation_screen.dart';
 import '../../../core/services/api_service.dart';
 
 class TodayDashboardScreen extends StatefulWidget {
@@ -380,10 +381,12 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
                         },
                       ),
                       _buildServiceItem(
-                        icon: Icons.timer_outlined,
-                        label: 'Focus Timer',
+                        icon: Icons.draw_outlined,
+                        label: 'Omni Notes',
                         onTap: () {
-                          _showFocusTimerDialog(context);
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const NotesWorkstationScreen()),
+                          );
                         },
                       ),
                       _buildServiceItem(
@@ -756,7 +759,7 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Text(
-                          '8 STATIONS',
+                          '9 STATIONS',
                           style: TextStyle(
                             color: AppTheme.pastelPeachText,
                             fontSize: 10,
@@ -769,7 +772,21 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
                   ),
                 ),
 
-                // 1. Phone Governance & Focus Shield
+                // 1. Notes & Revelations Hub (Spiritual, Bible Study, Vision, Professional)
+                _buildWorkstationCard(
+                  context,
+                  badge: 'OMNI NOTES & PROPHECY HUB',
+                  badgeColor: const Color(0xFFF3E8FF),
+                  badgeTextColor: const Color(0xFF6B21A8),
+                  icon: Icons.draw_outlined,
+                  iconGradient: const LinearGradient(colors: [Color(0xFF9333EA), Color(0xFF581C87)]),
+                  title: 'Notes & Revelations Hub',
+                  subtitle: 'Segregated Spiritual (revelations, visions, dreams), Bible Study, Strategy, Professional & Relationships with 1-tap Task conversion',
+                  connectedStatus: '${db.getNotes().length} notes active • ${db.getNotes().where((n) => n.isPinned).length} pinned • Synced',
+                  destination: const NotesWorkstationScreen(),
+                ),
+
+                // 2. Phone Governance & Focus Shield
                 _buildWorkstationCard(
                   context,
                   badge: 'DEVICE CONTROL & GOVERNANCE',

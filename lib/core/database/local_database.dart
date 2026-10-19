@@ -40,6 +40,7 @@ class LocalDatabase {
   final List<InAppNotification> _notifications = [];
   final List<ReviewEntry> _reviews = [];
   final List<SmsDebitAlert> _smsDebitAlerts = [];
+  final List<OmniNote> _notes = [];
 
   // Stream controllers for reactivity
   final _changeStreamController = StreamController<void>.broadcast();
@@ -213,6 +214,77 @@ class LocalDatabase {
         isTopPriority: true,
         scheduledDate: DateTime(now.year, now.month, now.day),
         createdAt: now.subtract(const Duration(days: 1)),
+      ),
+    ]);
+
+    // 10. Omni Notes (Spiritual, Bible Study, Vision, Professional, Relationships)
+    _notes.addAll([
+      OmniNote(
+        id: 'note-spir-1',
+        workspaceId: AppConstants.workspacePersonalId,
+        title: '3:00 AM Prophetic Vision: Regional Technology Expansion',
+        content: 'Saw a map of West Africa illuminated with high-resilience edge computing infrastructure.\n\nKey Directives:\n- Build systems that operate completely zero-cloud offline\n- Empower young engineers through Henovate Labs\n- Faithfulness in small milestones before national infrastructure rollout\n\nScripture anchor received during prayer: Write the vision and make it plain on tablets.',
+        category: NoteCategory.spiritual,
+        subCategory: 'Prophetic Vision',
+        scriptureReference: 'Habakkuk 2:2-3',
+        tags: const ['revelation', 'vision', 'fasting', 'destiny'],
+        isPinned: true,
+        colorValue: 0xFFF3E8FF,
+        createdAt: now.subtract(const Duration(days: 2)),
+        updatedAt: now.subtract(const Duration(days: 2)),
+      ),
+      OmniNote(
+        id: 'note-bible-1',
+        workspaceId: AppConstants.workspacePersonalId,
+        title: 'Ephesians 3:20 — Exegesis on "Huper Ekperissou"',
+        content: '"Now to Him who is able to do immeasurably more than all we ask or imagine..."\n\n- Greek: "ὑπὲρ ἐκπερισσοῦ" (huper ekperissou) - compound superlative meaning "super-abundantly beyond, surpassing all imagination"\n- Power source: "according to the power at work WITHIN us" (not external leverage, but internal transformation)\n- Application: Refuse small-minded operational constraints. Plan with audacity, execute with holy reverence.',
+        category: NoteCategory.bibleStudy,
+        subCategory: 'Exegesis & Word Study',
+        scriptureReference: 'Ephesians 3:20-21',
+        tags: const ['exegesis', 'greek', 'faith', 'devotion'],
+        isPinned: true,
+        colorValue: 0xFFFEF3C7,
+        createdAt: now.subtract(const Duration(days: 4)),
+        updatedAt: now.subtract(const Duration(days: 4)),
+      ),
+      OmniNote(
+        id: 'note-vis-1',
+        workspaceId: AppConstants.workspaceHenovateId,
+        title: 'Henovate 2027 Masterplan: Sovereign Enterprise Edge',
+        content: 'Strategic Objectives:\n- [ ] Deliver Personal Life OS with full multi-platform biometric security\n- [ ] Deploy local neural indexing on consumer devices\n- [x] Integrate zero-downtime Render REST API with Supabase replication\n- [ ] Launch enterprise client portal for high-compliance firms\n\nGuiding Metric: 99.999% uptime with 0% data leakage.',
+        category: NoteCategory.visionStrategy,
+        subCategory: 'Architecture & Venture Masterplan',
+        tags: const ['strategy', 'masterplan', '2027', 'henovate'],
+        isPinned: true,
+        colorValue: 0xFFDBEAFE,
+        createdAt: now.subtract(const Duration(days: 5)),
+        updatedAt: now.subtract(const Duration(days: 1)),
+      ),
+      OmniNote(
+        id: 'note-prof-1',
+        workspaceId: AppConstants.workspaceBemsId,
+        title: 'Bems Group Executive Alignment: Q4 Milestones',
+        content: 'Decisions from Leadership Briefing:\n- Streamline department delivery pipelines\n- Enforce strict 48-hour client response time across project managers\n- Audit capital allocations and discretionary overhead\n\nNext Action Item: Schedule bottleneck review with division leads.',
+        category: NoteCategory.professional,
+        subCategory: 'Executive Briefing',
+        tags: const ['bems', 'coo', 'governance', 'operations'],
+        isPinned: false,
+        colorValue: 0xFFD1FAE5,
+        createdAt: now.subtract(const Duration(days: 1)),
+        updatedAt: now.subtract(const Duration(days: 1)),
+      ),
+      OmniNote(
+        id: 'note-rel-1',
+        workspaceId: AppConstants.workspacePersonalId,
+        title: 'Key Relationships Dossier & Mentorship Commitments',
+        content: 'Relational Principles:\n- Never sacrifice family sabbaths for urgent low-leverage demands\n- Monthly check-in calls with core mentors\n- Active listening without immediate problem-solving reflex\n\nCommitments:\n- [ ] Plan weekend family retreat for next month\n- [x] Send encouraging scripture note to tech team leads',
+        category: NoteCategory.relationships,
+        subCategory: 'Mentorship & Family',
+        tags: const ['family', 'mentorship', 'character'],
+        isPinned: false,
+        colorValue: 0xFFFCE7F3,
+        createdAt: now.subtract(const Duration(days: 3)),
+        updatedAt: now.subtract(const Duration(days: 3)),
       ),
     ]);
   }
@@ -682,6 +754,93 @@ class LocalDatabase {
     _notify();
   }
 
+  // --- Omni Notes Workstation ---
+  List<OmniNote> getNotes({NoteCategory? category, String? workspaceId, String? search}) {
+    var result = _notes.toList();
+    if (category != null) {
+      result = result.where((n) => n.category == category).toList();
+    }
+    if (workspaceId != null && workspaceId.isNotEmpty) {
+      result = result.where((n) => n.workspaceId == workspaceId).toList();
+    }
+    if (search != null && search.trim().isNotEmpty) {
+      final q = search.trim().toLowerCase();
+      result = result.where((n) =>
+        n.title.toLowerCase().contains(q) ||
+        n.content.toLowerCase().contains(q) ||
+        (n.scriptureReference?.toLowerCase().contains(q) ?? false) ||
+        n.tags.any((t) => t.toLowerCase().contains(q))
+      ).toList();
+    }
+    // Pinned notes first, then updated_at descending
+    result.sort((a, b) {
+      if (a.isPinned != b.isPinned) {
+        return a.isPinned ? -1 : 1;
+      }
+      return b.updatedAt.compareTo(a.updatedAt);
+    });
+    return List.unmodifiable(result);
+  }
+
+  OmniNote? getNoteById(String id) =>
+      _notes.cast<OmniNote?>().firstWhere((n) => n?.id == id, orElse: () => null);
+
+  void upsertNote(OmniNote note) {
+    final idx = _notes.indexWhere((n) => n.id == note.id);
+    if (idx >= 0) {
+      _notes[idx] = note;
+    } else {
+      _notes.insert(0, note);
+    }
+    _notify();
+  }
+
+  void deleteNote(String id) {
+    _notes.removeWhere((n) => n.id == id);
+    _notify();
+  }
+
+  void toggleNotePin(String id) {
+    final idx = _notes.indexWhere((n) => n.id == id);
+    if (idx >= 0) {
+      final current = _notes[idx];
+      _notes[idx] = current.copyWith(isPinned: !current.isPinned, updatedAt: DateTime.now());
+      _notify();
+    }
+  }
+
+  Task convertNoteToTask(
+    String noteId, {
+    String? targetWorkspaceId,
+    TaskImportance importance = TaskImportance.high,
+    int estimateMins = 30,
+    DateTime? scheduledDate,
+  }) {
+    final note = getNoteById(noteId);
+    if (note == null) throw ArgumentError('Note not found');
+
+    final taskId = 'task-from-note-${DateTime.now().millisecondsSinceEpoch}';
+    final now = DateTime.now();
+    final task = Task(
+      id: taskId,
+      workspaceId: targetWorkspaceId ?? note.workspaceId,
+      title: note.title,
+      nextAction: note.content.isNotEmpty
+          ? (note.content.length > 150 ? '${note.content.substring(0, 150)}...' : note.content)
+          : 'Execute action from note',
+      importance: importance,
+      isTopPriority: true,
+      status: TaskStatus.next,
+      scheduledDate: scheduledDate ?? DateTime(now.year, now.month, now.day),
+      estimateMinutes: estimateMins,
+      createdAt: now,
+    );
+
+    upsertTask(task);
+    upsertNote(note.copyWith(linkedTaskId: taskId, updatedAt: now));
+    return task;
+  }
+
   // --- Wipe All Data (Atomic Confirmation) ---
   void wipeAllData() {
     _tasks.clear();
@@ -710,6 +869,7 @@ class LocalDatabase {
     _notifications.clear();
     _reviews.clear();
     _smsDebitAlerts.clear();
+    _notes.clear();
     _initDefaultData();
     _notify();
   }

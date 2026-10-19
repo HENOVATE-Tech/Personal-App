@@ -256,6 +256,22 @@ class ApiService {
         'is_ignored': s.isIgnored,
       }).toList();
 
+      final notes = db.getNotes().map((n) => {
+        'id': n.id,
+        'workspace_id': n.workspaceId,
+        'title': n.title,
+        'content': n.content,
+        'category': n.category.name,
+        'sub_category': n.subCategory,
+        'tags': n.tags,
+        'scripture_reference': n.scriptureReference,
+        'is_pinned': n.isPinned,
+        'color_value': n.colorValue,
+        'linked_task_id': n.linkedTaskId,
+        'created_at': n.createdAt.toIso8601String(),
+        'updated_at': n.updatedAt.toIso8601String(),
+      }).toList();
+
       final pushPayload = {
         'tasks': tasks,
         'financial_accounts': accounts,
@@ -264,6 +280,7 @@ class ApiService {
         'ledger_transactions': transactions,
         'ledger_movements': movements,
         'sms_debit_alerts': smsAlerts,
+        'notes': notes,
       };
 
       // 2. Push to backend
@@ -309,6 +326,18 @@ class ApiService {
               );
               totalPulled++;
             }
+          }
+        }
+
+        // Merge remote notes into local
+        if (tables['notes'] != null) {
+          final remoteNotes = tables['notes'] as List;
+          for (final row in remoteNotes) {
+            try {
+              final note = OmniNote.fromJson(Map<String, dynamic>.from(row as Map));
+              db.upsertNote(note);
+              totalPulled++;
+            } catch (_) {}
           }
         }
       }

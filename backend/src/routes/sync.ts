@@ -40,6 +40,7 @@ router.post('/push', async (req: Request, res: Response) => {
       transactions = [],
       movements = [],
       smsAlerts = [],
+      notes = [],
     } = req.body;
 
     let pushedCount = 0;
@@ -165,6 +166,28 @@ router.post('/push', async (req: Request, res: Response) => {
       pushedCount++;
     }
 
+    // 11. Notes
+    for (const note of notes) {
+      await client.query(
+        `INSERT INTO notes (id, workspace_id, title, content, category, sub_category, tags, scripture_reference, is_pinned, color_value, linked_task_id, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+         ON CONFLICT (id) DO UPDATE SET
+           workspace_id = EXCLUDED.workspace_id,
+           title = EXCLUDED.title,
+           content = EXCLUDED.content,
+           category = EXCLUDED.category,
+           sub_category = EXCLUDED.sub_category,
+           tags = EXCLUDED.tags,
+           scripture_reference = EXCLUDED.scripture_reference,
+           is_pinned = EXCLUDED.is_pinned,
+           color_value = EXCLUDED.color_value,
+           linked_task_id = EXCLUDED.linked_task_id,
+           updated_at = NOW();`,
+        [note.id, note.workspaceId || 'ws-personal', note.title, note.content, note.category, note.subCategory || null, note.tags || [], note.scriptureReference || null, note.isPinned || false, note.colorValue || 4294967295, note.linkedTaskId || null, note.createdAt || new Date()]
+      );
+      pushedCount++;
+    }
+
     await client.query('COMMIT');
     res.json({ success: true, recordsPushed: pushedCount, timestamp: new Date() });
   } catch (err: any) {
@@ -189,6 +212,7 @@ router.get('/pull', async (_req: Request, res: Response) => {
     const transactions = (await pool.query('SELECT * FROM ledger_transactions ORDER BY effective_at DESC LIMIT 50;')).rows;
     const movements = (await pool.query('SELECT * FROM ledger_movements;')).rows;
     const smsAlerts = (await pool.query('SELECT * FROM sms_debit_alerts WHERE is_processed = false AND is_ignored = false;')).rows;
+    const notes = (await pool.query('SELECT * FROM notes ORDER BY is_pinned DESC, updated_at DESC;')).rows;
 
     res.json({
       success: true,
@@ -204,6 +228,7 @@ router.get('/pull', async (_req: Request, res: Response) => {
         transactions,
         movements,
         smsAlerts,
+        notes,
       },
       timestamp: new Date(),
     });

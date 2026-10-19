@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import syncRouter from './routes/sync.js';
 import tasksRouter from './routes/tasks.js';
 import financeRouter from './routes/finance.js';
+import notesRouter from './routes/notes.js';
 import { pool } from './config/db.js';
 
 dotenv.config();
@@ -55,6 +56,7 @@ app.get('/', (_req: Request, res: Response) => {
 app.use('/api/sync', syncRouter);
 app.use('/api/tasks', tasksRouter);
 app.use('/api/finance', financeRouter);
+app.use('/api/notes', notesRouter);
 
 // Start Server
 app.listen(Number(port), '0.0.0.0', () => {
