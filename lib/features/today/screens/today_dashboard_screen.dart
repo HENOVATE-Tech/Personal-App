@@ -21,6 +21,7 @@ import '../../../core/services/api_service.dart';
 import '../../more/screens/more_hub_screen.dart';
 import '../../finance/screens/budget_management_screen.dart';
 import '../../../core/services/sms_ingestion_service.dart';
+import '../../reminders/screens/reminders_screen.dart';
 
 class TodayDashboardScreen extends StatefulWidget {
   final VoidCallback onQuickExpense;
@@ -394,6 +395,15 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
                         icon: Icons.payments_outlined,
                         label: 'Expense',
                         onTap: widget.onQuickExpense,
+                      ),
+                      _buildServiceItem(
+                        icon: Icons.alarm,
+                        label: 'Alarms',
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const RemindersScreen()),
+                          );
+                        },
                       ),
                       _buildServiceItem(
                         icon: Icons.timer_outlined,

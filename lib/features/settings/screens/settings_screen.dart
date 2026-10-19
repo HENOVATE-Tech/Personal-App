@@ -4,6 +4,8 @@ import '../../../core/database/local_database.dart';
 import '../../../core/services/backup_service.dart';
 import '../../../core/services/supabase_sync_service.dart';
 import '../../../core/services/api_service.dart';
+import '../../../core/services/notification_service.dart';
+import '../../reminders/screens/reminders_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -169,6 +171,88 @@ class SettingsScreen extends StatelessWidget {
                             onChanged: (val) {
                               db.updateUserProfile(profile.copyWith(is24Hour: val));
                             },
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: AppTheme.floatingCardDecoration,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(Icons.alarm, color: Color(0xFFEF4444), size: 22),
+                                  SizedBox(width: 10),
+                                  Text(
+                                    'Audible Alarms & Audio Alerts',
+                                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppTheme.darkCharcoal),
+                                  ),
+                                ],
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEE2E2),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  '${NotificationService.instance.activeAlarms.length} Active',
+                                  style: const TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.bold, fontSize: 11),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Loud hardware ringtone alarm for commitments, prayer slots, study blocks, and routines. Rings until snoozed or dismissed.',
+                            style: TextStyle(fontSize: 12, color: Colors.grey.shade600, height: 1.4),
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  icon: const Icon(Icons.volume_up, size: 16),
+                                  label: const Text('Test Ringtone'),
+                                  style: OutlinedButton.styleFrom(
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                  ),
+                                  onPressed: () {
+                                    NotificationService.instance.testAlarmNow();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('🔔 Alarm Ringing! Top banner and hardware audio active.'),
+                                        backgroundColor: AppTheme.darkCharcoal,
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  icon: const Icon(Icons.alarm_add, size: 16),
+                                  label: const Text('Manage Alarms'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.coralPrimary,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                  ),
+                                  onPressed: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(builder: (_) => const RemindersScreen()),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
