@@ -114,7 +114,7 @@ class _TaskListScreenState extends State<TaskListScreen> {
                         ),
                       )
                     : ListView(
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+                        padding: EdgeInsets.fromLTRB(16, 4, 16, 110 + MediaQuery.of(context).padding.bottom),
                         children: [
                           if (pendingTasks.isNotEmpty) ...[
                             Padding(

@@ -41,7 +41,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ],
           ),
           body: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+            padding: EdgeInsets.fromLTRB(16, 8, 16, 110 + MediaQuery.of(context).padding.bottom),
             children: [
               // Month Selector Header Card
               Container(

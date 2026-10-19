@@ -50,9 +50,64 @@ class _AppShellState extends State<AppShell> {
       const MoreHubScreen(),
     ];
 
-    // Responsive Mobile Container: Center mobile frame on wider screens with soft backdrop
+    final mediaQuery = MediaQuery.of(context);
+    final isDesktop = mediaQuery.size.width >= 600;
+    final bottomInset = mediaQuery.padding.bottom;
+
+    final shellContent = Stack(
+      children: [
+        // Active Screen Content
+        IndexedStack(
+          index: _currentIndex,
+          children: screens,
+        ),
+
+        // Modern Floating Bottom Navigation Bar (matching reference UI)
+        Positioned(
+          left: 16,
+          right: 16,
+          bottom: bottomInset > 0 ? bottomInset + 8 : 16,
+          child: Container(
+            height: 64,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(32),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 25,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavItem(0, Icons.home_filled, Icons.home_outlined, 'Today'),
+                _buildNavItem(1, Icons.calendar_month, Icons.calendar_month_outlined, 'Plan'),
+                _buildNavItem(2, Icons.check_circle, Icons.check_circle_outline, 'Tasks'),
+                _buildNavItem(3, Icons.account_balance_wallet, Icons.account_balance_wallet_outlined, 'Finance'),
+                _buildNavItem(4, Icons.widgets, Icons.widgets_outlined, 'More'),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+
+    if (!isDesktop) {
+      // Mobile View: Full 100% width, native mobile experience with no side letterboxing
+      return Scaffold(
+        backgroundColor: AppTheme.background,
+        body: SizedBox.expand(
+          child: shellContent,
+        ),
+      );
+    }
+
+    // Desktop/Wide View: Centered mobile mockup frame with soft backdrop
     return Scaffold(
-      backgroundColor: const Color(0xFFE5E7EB), // Soft neutral backdrop for web desktop
+      backgroundColor: const Color(0xFFE5E7EB),
       body: Center(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 440),
@@ -66,46 +121,7 @@ class _AppShellState extends State<AppShell> {
               ),
             ],
           ),
-          child: Stack(
-            children: [
-              // Active Screen Content
-              IndexedStack(
-                index: _currentIndex,
-                children: screens,
-              ),
-
-              // Modern Floating Bottom Navigation Bar (matching reference UI)
-              Positioned(
-                left: 16,
-                right: 16,
-                bottom: 16,
-                child: Container(
-                  height: 68,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(34),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 25,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildNavItem(0, Icons.home_filled, Icons.home_outlined, 'Today'),
-                      _buildNavItem(1, Icons.calendar_month, Icons.calendar_month_outlined, 'Plan'),
-                      _buildNavItem(2, Icons.check_circle, Icons.check_circle_outline, 'Tasks'),
-                      _buildNavItem(3, Icons.account_balance_wallet, Icons.account_balance_wallet_outlined, 'Finance'),
-                      _buildNavItem(4, Icons.widgets, Icons.widgets_outlined, 'More'),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+          child: shellContent,
         ),
       ),
     );

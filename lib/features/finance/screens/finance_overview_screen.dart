@@ -256,7 +256,7 @@ class FinanceOverviewScreen extends StatelessWidget {
             ],
           ),
           body: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+            padding: EdgeInsets.fromLTRB(16, 8, 16, 110 + MediaQuery.of(context).padding.bottom),
             children: [
               // Sunset Mesh Gradient Balance Card
               Container(

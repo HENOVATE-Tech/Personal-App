@@ -21,7 +21,14 @@ class MoreHubScreen extends StatelessWidget {
         slivers: [
           SliverToBoxAdapter(
             child: Container(
-              padding: const EdgeInsets.fromLTRB(20, 56, 20, 24),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                MediaQuery.of(context).padding.top > 0
+                    ? MediaQuery.of(context).padding.top + 16
+                    : 56,
+                20,
+                24,
+              ),
               decoration: const BoxDecoration(
                 gradient: AppTheme.coralMeshGradient,
                 borderRadius: BorderRadius.only(
@@ -91,7 +98,7 @@ class MoreHubScreen extends StatelessWidget {
             ),
           ),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+            padding: EdgeInsets.fromLTRB(20, 20, 20, 110 + MediaQuery.of(context).padding.bottom),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 _buildHubCard(

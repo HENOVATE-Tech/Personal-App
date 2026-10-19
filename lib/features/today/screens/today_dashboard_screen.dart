@@ -77,9 +77,11 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
 
         return Scaffold(
           backgroundColor: AppTheme.background,
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.only(bottom: 100),
-            child: Column(
+          body: SafeArea(
+            bottom: false,
+            child: SingleChildScrollView(
+              padding: EdgeInsets.only(bottom: 110 + MediaQuery.of(context).padding.bottom),
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Top Custom Header Controls
@@ -91,10 +93,10 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
                       Expanded(
                         child: Row(
                           children: [
-                            CircleAvatar(
+                            const CircleAvatar(
                               radius: 20,
-                              backgroundColor: const Color(0xFFFFECE5),
-                              child: const Icon(Icons.person, color: AppTheme.coralPrimary, size: 22),
+                              backgroundColor: Color(0xFFFFECE5),
+                              child: Icon(Icons.person, color: AppTheme.coralPrimary, size: 22),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -251,14 +253,14 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
+                              const Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        const Text(
+                                        Text(
                                           'Available Liquid Funds',
                                           style: TextStyle(
                                             fontSize: 14,
@@ -266,9 +268,9 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
                                             color: AppTheme.textPrimary,
                                           ),
                                         ),
-                                        const SizedBox(height: 4),
+                                        SizedBox(height: 4),
                                         Row(
-                                          children: const [
+                                          children: [
                                             Icon(Icons.check_circle, size: 12, color: Color(0xFF10B981)),
                                             SizedBox(width: 4),
                                             Flexible(
@@ -283,8 +285,8 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
                                       ],
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  const Icon(Icons.receipt_long, color: AppTheme.textTertiary, size: 28),
+                                  SizedBox(width: 8),
+                                  Icon(Icons.receipt_long, color: AppTheme.textTertiary, size: 28),
                                 ],
                               ),
                               const SizedBox(height: 18),
@@ -909,7 +911,8 @@ class _TodayDashboardScreenState extends State<TodayDashboardScreen> {
               ],
             ),
           ),
-        );
+        ),
+      );
       },
     );
   }
