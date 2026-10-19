@@ -3,6 +3,7 @@ import '../../../core/config/theme.dart';
 import '../../../core/database/local_database.dart';
 import '../../../core/services/backup_service.dart';
 import '../../../core/services/supabase_sync_service.dart';
+import '../../../core/services/api_service.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -174,11 +175,14 @@ class SettingsScreen extends StatelessWidget {
                     ),
 
                     const SizedBox(height: 24),
+                    const RenderBackendCard(),
+
+                    const SizedBox(height: 24),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
-                          'Cloud Database (Supabase)',
+                          'Direct Cloud DB (Supabase)',
                           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.darkCharcoal),
                         ),
                         Container(
@@ -572,6 +576,258 @@ class SettingsScreen extends StatelessWidget {
               Navigator.of(ctx).pop();
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Local database wiped clean and reset.')));
             },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class RenderBackendCard extends StatefulWidget {
+  const RenderBackendCard({super.key});
+
+  @override
+  State<RenderBackendCard> createState() => _RenderBackendCardState();
+}
+
+class _RenderBackendCardState extends State<RenderBackendCard> {
+  bool _isChecking = false;
+  bool _isSyncing = false;
+  ApiHealthResult? _health;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkHealth();
+  }
+
+  Future<void> _checkHealth() async {
+    setState(() => _isChecking = true);
+    final res = await ApiService.instance.checkHealth();
+    if (mounted) {
+      setState(() {
+        _isChecking = false;
+        _health = res;
+      });
+    }
+  }
+
+  void _showEditUrlDialog(BuildContext context) {
+    final controller = TextEditingController(text: ApiService.instance.baseUrl);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Render Backend API URL', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Enter the public URL of your Render backend deployment (or local development address):',
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                hintText: 'https://personal-life-os-api.onrender.com',
+                labelText: 'Backend URL',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                prefixIcon: const Icon(Icons.link, size: 20),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Default local: http://localhost:5000 (or http://10.0.2.2:5000 on Android emulator)',
+              style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            child: const Text('Cancel'),
+            onPressed: () => Navigator.of(ctx).pop(),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.coralPrimary,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Save & Test'),
+            onPressed: () {
+              final newUrl = controller.text.trim();
+              if (newUrl.isNotEmpty) {
+                ApiService.instance.setBaseUrl(newUrl);
+                Navigator.of(ctx).pop();
+                _checkHealth();
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isOnline = _health?.isHealthy ?? false;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: AppTheme.floatingCardDecoration,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: isOnline ? const Color(0xFFE8F0FE) : const Color(0xFFFCE8E6),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  Icons.dns_outlined,
+                  color: isOnline ? const Color(0xFF1967D2) : const Color(0xFFD93025),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Text(
+                          'Render Backend REST API',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.darkCharcoal),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isOnline ? const Color(0xFF34A853) : const Color(0xFFEA4335),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      ApiService.instance.baseUrl,
+                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary, fontFamily: 'monospace'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.edit_outlined, size: 20, color: AppTheme.textSecondary),
+                tooltip: 'Change Backend URL',
+                onPressed: () => _showEditUrlDialog(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'API Status: ${isOnline ? 'Online (Healthy)' : (_isChecking ? 'Connecting...' : 'Offline')}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: isOnline ? const Color(0xFF137333) : const Color(0xFFC5221F),
+                      ),
+                    ),
+                    if (_health?.database != null)
+                      Text(
+                        'DB: ${_health!.database}',
+                        style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary, fontWeight: FontWeight.w600),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  '• Express & TypeScript REST engine with Render Blueprint support\n'
+                  '• Double-entry ledger integrity & batch bi-directional push/pull\n'
+                  '• Connected to Supabase PostgreSQL cloud storage',
+                  style: TextStyle(fontSize: 11, color: AppTheme.textSecondary, height: 1.4),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  icon: _isSyncing
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.sync_outlined, size: 16),
+                  label: Text(_isSyncing ? 'Syncing...' : 'Sync via API'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1A73E8),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: _isSyncing
+                      ? null
+                      : () async {
+                          final messenger = ScaffoldMessenger.of(context);
+                          setState(() => _isSyncing = true);
+                          messenger.showSnackBar(
+                            const SnackBar(content: Text('Syncing with Render REST API backend...')),
+                          );
+                          final res = await ApiService.instance.syncAll(LocalDatabase.instance);
+                          if (!mounted) return;
+                          setState(() => _isSyncing = false);
+                          if (res.isSuccess) {
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'API Sync Complete! Pushed: ${res.recordsPushed}, Pulled: ${res.recordsPulled}',
+                                ),
+                              ),
+                            );
+                          } else {
+                            messenger.showSnackBar(
+                              SnackBar(content: Text('Sync failed: ${res.errorMessage}')),
+                            );
+                          }
+                        },
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: _isChecking
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.network_ping_outlined, size: 16),
+                  label: const Text('Test Ping'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.darkCharcoal,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: _isChecking ? null : _checkHealth,
+                ),
+              ),
+            ],
           ),
         ],
       ),

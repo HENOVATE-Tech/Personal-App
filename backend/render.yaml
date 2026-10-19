@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: personal-life-os-api
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        value: postgresql://postgres:henzsolo31012002!@db.actqetxmyfdmoqyykwxj.supabase.co:5432/postgres
+      - key: NODE_ENV
+        value: production

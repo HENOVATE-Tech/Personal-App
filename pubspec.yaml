@@ -39,6 +39,7 @@ dependencies:
   uuid: ^4.5.1
   crypto: ^3.0.5
   postgres: ^3.4.8
+  http: ^1.2.2
 
 dev_dependencies:
   flutter_test:
