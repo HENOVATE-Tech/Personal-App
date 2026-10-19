@@ -58,11 +58,9 @@ class _AppShellState extends State<AppShell> {
     final shellContent = Stack(
       children: [
         // Active Screen Content
-        Positioned.fill(
-          child: IndexedStack(
-            index: _currentIndex,
-            children: screens,
-          ),
+        IndexedStack(
+          index: _currentIndex,
+          children: screens,
         ),
 
         // Floating Top Ringing Alarm Banner
@@ -216,6 +214,8 @@ class _AppShellState extends State<AppShell> {
       body: Center(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 440),
+          width: 440,
+          height: double.infinity,
           decoration: BoxDecoration(
             color: AppTheme.background,
             boxShadow: [
@@ -226,7 +226,9 @@ class _AppShellState extends State<AppShell> {
               ),
             ],
           ),
-          child: shellContent,
+          child: SizedBox.expand(
+            child: shellContent,
+          ),
         ),
       ),
     );
