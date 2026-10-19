@@ -124,7 +124,7 @@ class SettingsScreen extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      profile.displayName,
+                                      profile.fullName,
                                       style: const TextStyle(
                                         fontWeight: FontWeight.w800,
                                         fontSize: 17,
@@ -133,7 +133,7 @@ class SettingsScreen extends StatelessWidget {
                                     ),
                                     const SizedBox(height: 3),
                                     Text(
-                                      '${profile.timezone} • Currency ${profile.currency}',
+                                      'Preferred: ${profile.displayName} • ${profile.timezone} • ${profile.currency}',
                                       style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                                     ),
                                   ],

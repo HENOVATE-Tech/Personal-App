@@ -11,8 +11,11 @@ class LocalDatabase {
 
   final _uuid = const Uuid();
 
-  // Storage In-Memory Cache (backed by persistent JSON/SQLite sync)
-  UserProfile _userProfile = const UserProfile(id: 'owner-default');
+  UserProfile _userProfile = const UserProfile(
+    id: 'henry-profile',
+    displayName: 'Henry',
+    fullName: 'Henry Solomon Adeleke',
+  );
   final List<Workspace> _workspaces = [];
   final List<Task> _tasks = [];
   final List<TaskChecklistItem> _taskChecklistItems = [];

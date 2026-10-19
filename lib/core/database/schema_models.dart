@@ -1,6 +1,7 @@
 class UserProfile {
   final String id;
   final String displayName;
+  final String fullName;
   final String locale;
   final String timezone;
   final String currency;
@@ -16,7 +17,8 @@ class UserProfile {
 
   const UserProfile({
     required this.id,
-    this.displayName = 'Owner',
+    this.displayName = 'Henry',
+    this.fullName = 'Henry Solomon Adeleke',
     this.locale = 'en_NG',
     this.timezone = 'Africa/Lagos',
     this.currency = 'NGN',
@@ -33,6 +35,7 @@ class UserProfile {
 
   UserProfile copyWith({
     String? displayName,
+    String? fullName,
     String? locale,
     String? timezone,
     String? currency,
@@ -49,6 +52,7 @@ class UserProfile {
     return UserProfile(
       id: id,
       displayName: displayName ?? this.displayName,
+      fullName: fullName ?? this.fullName,
       locale: locale ?? this.locale,
       timezone: timezone ?? this.timezone,
       currency: currency ?? this.currency,
