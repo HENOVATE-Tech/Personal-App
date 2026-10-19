@@ -7,6 +7,7 @@ import '../../learning/screens/reading_library_screen.dart';
 import '../../health/screens/health_hub_screen.dart';
 import '../../settings/screens/settings_screen.dart';
 import '../../analytics/screens/insights_screen.dart';
+import '../../governance/screens/device_governance_screen.dart';
 
 class MoreHubScreen extends StatelessWidget {
   const MoreHubScreen({super.key});
@@ -145,6 +146,15 @@ class MoreHubScreen extends StatelessWidget {
                   title: 'Reviews & Insights Analytics',
                   subtitle: 'Sunday weekly review, month-end closing, authentic trends',
                   destination: const InsightsScreen(),
+                ),
+                _buildHubCard(
+                  context,
+                  icon: Icons.security,
+                  iconColor: const Color(0xFFDC2626),
+                  badge: 'DEVICE CONTROL',
+                  title: 'Phone Governance & Focus Shield',
+                  subtitle: 'Device administrator lockdown, social handles shutdown, alarm triggers',
+                  destination: const DeviceGovernanceScreen(),
                 ),
                 _buildHubCard(
                   context,
