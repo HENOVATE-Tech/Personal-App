@@ -17,7 +17,7 @@ router.get('/status', async (_req: Request, res: Response) => {
       provider: 'Supabase PostgreSQL',
       latencyMs,
       tableCount: countRes.rowCount,
-      tables: countRes.rows.map((r) => r.table_name),
+      tables: countRes.rows.map((r: any) => r.table_name),
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
